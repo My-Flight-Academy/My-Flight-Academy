@@ -271,23 +271,28 @@ function openF(id){const o=LIB.find(x=>x.id===id);if(!o)return;let v=$('#vw');
   b.onpointermove=e=>{if(vd){vz.x=vd.x+e.clientX-vd.px;vz.y=vd.y+e.clientY-vd.py;vA()}};b.onpointerup=()=>{vd=null}}
  else if(o.type==='application/pdf'){b.style.cursor='default';fetch(o.data).then(r=>r.blob()).then(bl=>{b.innerHTML=`<iframe src="${URL.createObjectURL(bl)}" style="width:100%;height:100%;border:0;background:#fff"></iframe>`}).catch(()=>{b.innerHTML='<div class="fb">No se pudo mostrar el PDF en esta página.</div>'})}
  else{b.style.cursor='default';b.style.overflow='auto';const show=t=>{b.innerHTML=`<pre class="mono" style="white-space:pre-wrap;padding:20px;max-width:780px;margin:0 auto">${esc(t)}</pre>`};o.type==='text/note'?show(o.data):fetch(o.data).then(r=>r.text()).then(show)}}
-document.head.insertAdjacentHTML('beforeend','<style>#wl{position:fixed;inset:0;z-index:60;background:rgba(5,10,18,.95);display:flex;padding:16px;overflow:auto}#wl .wb{background:var(--pnl);border:1px solid var(--ln);border-top:3px solid var(--am);border-radius:6px;max-width:580px;width:100%;padding:24px;margin:auto}#wl ul{margin:10px 0 0;padding-left:20px}#wl li{margin:9px 0;color:var(--mu);font-size:14px}#wl li b{color:var(--tx)}</style>');
+document.head.insertAdjacentHTML('beforeend','<style>#wl{position:fixed;inset:0;z-index:60;background:rgba(5,10,18,.95);display:flex;padding:16px;overflow:auto}#wl .wb{background:var(--pnl);border:1px solid var(--ln);border-top:3px solid var(--am);border-radius:6px;max-width:580px;width:100%;padding:24px;margin:auto}#wl ul{margin:10px 0 0;padding-left:20px}#wl li{margin:9px 0;color:var(--mu);font-size:14px}#wl li b{color:var(--tx)}.wr{margin-top:16px;border:1px solid var(--rd);border-left:5px solid var(--rd);background:rgba(229,72,77,.12);border-radius:5px;padding:14px 16px}.wr h2{display:flex;align-items:center;gap:10px;margin:0 0 6px;font-size:16px;letter-spacing:.04em;color:var(--rd)}.wr p{margin:10px 0 0;font-size:14px;line-height:1.55}.wr b{color:#fff}</style>');
 const hello=()=>{const h=new Date().getHours();return h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches'};
 // Pantalla de bienvenida: pide el nombre en el primer ingreso y muestra el aviso de alcance.
 function welcome(edit){welcomeClose();
  document.body.insertAdjacentHTML('beforeend',`<div id="wl" role="dialog" aria-modal="true" aria-labelledby="wt"><div class="wb">
  <div class="cap">${edit?'PERFIL':'PRIMER INGRESO'}</div><h1 id="wt" style="font-size:24px;margin:6px 0 16px">${edit?'Cambiar nombre':'Bienvenido a My Flight Academy'}</h1>
  <label for="wn">¿Cómo te llamas?</label><input id="wn" maxlength="30" autocomplete="given-name" placeholder="Tu nombre" value="${esc(S.name)}">
- <div class="card" style="margin-top:16px;background:var(--pnl2)"><div class="cap">ANTES DE EMPEZAR</div><ul>
+ <div class="wr" role="alert"><h2><svg class="ic" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg>OJO: LEE ESTO ANTES DE EMPEZAR</h2>
+ <p><b>Esto no reemplaza una escuela de aviación.</b> Es solo una introducción a este mundo apasionante de la aviación. Todo lo que se enseña en una escuela certificada, con instructores y práctica real, sigue siendo indispensable.</p>
+ <p><b>Con esta información no puedes tomar un avión e ir a volar. No.</b> Terminar estas lecciones no te habilita para volar: hacerlo exige formación certificada, instrucción práctica con un instructor de vuelo y la licencia que pida la autoridad aeronáutica de tu país.</p>
+ <p><b>La información varía según el avión.</b> La mayor parte del contenido está ambientada en aviones conocidos, como la Cessna 172 o el Airbus A320. Los procedimientos, las velocidades y las configuraciones cambian según el modelo, el fabricante y su manual de vuelo.</p></div>
+ <div class="card" style="margin-top:16px;background:var(--pnl2)"><div class="cap">ADEMÁS, TEN EN CUENTA</div><ul>
  <li><b>Qué es esta plataforma.</b> Un espacio de estudio personal para aprender los fundamentos de aviación con la meta de llegar a piloto privado y piloto comercial: fundamentos de vuelo, navegación, meteorología, comunicaciones e instrumentos.</li>
- <li><b>Qué no es.</b> Es material de apoyo. No reemplaza una escuela de aviación certificada, a un instructor de vuelo ni la formación oficial.</li>
  <li><b>Licencias.</b> Los requisitos (horas, edad, certificado médico, exámenes) los define la autoridad aeronáutica de cada país. Consúltalos siempre en fuentes oficiales.</li>
- <li><b>Simulador y datos reales.</b> Las horas y los procedimientos de simulador no equivalen a vuelo real. Cartas, frecuencias y procedimientos reales deben tomarse de las publicaciones oficiales vigentes y esta plataforma no sirve para navegar.</li></ul></div>
- <div class="row" style="margin-top:18px"><button id="wg" class="btn" ${(S.name||'').length>=2?'':'disabled'} onclick="welcomeGo()">${edit?'Guardar':'Entrar a la academia'}</button>${edit?'<button class="btn g" onclick="welcomeClose()">Cancelar</button>':''}</div></div></div>`);
- const i=$('#wn');i.oninput=()=>{$('#wg').disabled=i.value.trim().length<2};
+ <li><b>Simulador y datos reales.</b> Las horas y los procedimientos de simulador no equivalen a vuelo real. Cartas, frecuencias y procedimientos reales deben tomarse de las publicaciones oficiales vigentes, y esta plataforma no sirve para navegar.</li></ul></div>
+ ${edit?'':'<label class="chk" style="color:var(--tx);margin-top:14px"><input id="wk" type="checkbox"> He leído la advertencia y entiendo que esto es solo una introducción.</label>'}
+ <div class="row" style="margin-top:18px"><button id="wg" class="btn" ${edit&&(S.name||'').length>=2?'':'disabled'} onclick="welcomeGo()">${edit?'Guardar':'Entrar a la academia'}</button>${edit?'<button class="btn g" onclick="welcomeClose()">Cancelar</button>':''}</div></div></div>`);
+ const i=$('#wn'),chk=()=>{const k=$('#wk');$('#wg').disabled=!(i.value.trim().length>=2&&(!k||k.checked))};
+ i.oninput=chk;if($('#wk'))$('#wk').onchange=chk;
  i.onkeydown=e=>{if(e.key==='Enter'&&!$('#wg').disabled)welcomeGo();if(e.key==='Escape'&&edit)welcomeClose()};i.focus()}
 function welcomeClose(){const w=$('#wl');if(w)w.remove()}
-function welcomeGo(){const v=$('#wn').value.trim().slice(0,30);if(v.length<2)return;S.name=v;save();welcomeClose();render()}
+function welcomeGo(){const v=$('#wn').value.trim().slice(0,30),k=$('#wk');if(v.length<2||(k&&!k.checked))return;S.name=v;save();welcomeClose();render()}
 function startExam(){examState={i:0,s:0,miss:[]};render()}
 function toggle(k){S.done[k]=!S.done[k];save();render()}
 function openL(p,t){lesson={p,t};render()}
