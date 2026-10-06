@@ -64,3 +64,4 @@ th{color:var(--mu);font:600 12px 'JetBrains Mono'}
 .fig.ph{border:1px dashed var(--ln);padding:16px;border-radius:5px;color:var(--mu);font-size:13.5px}
 .sum{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 .sum div{background:var(--pnl2);border:1px solid var(--ln);border-radius:5px;padding:10px 12px}
+.btn:disabled{opacity:.4;cursor:not-allowed;filter:none}

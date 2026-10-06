@@ -30,7 +30,7 @@ const PHASES=[
  {id:7,n:'IFR',t:['Fundamentos IFR','ILS y aproximaciones','Holding y missed approach']},
  {id:8,n:'Aviación comercial',t:['FMC/MCDU y Autopilot','SOP y cockpit procedures']}
 ];
-const LESSONS={};
+const LESSONS={}; // Las lecciones viven en js/lessons/ (una carpeta por fase, un archivo por lección)
 const EXAM=[
  {p:'El Rudder controla principalmente el...',o:['Pitch','Roll','Yaw','Trim'],a:2,e:'El rudder actúa sobre el eje vertical (Yaw).',t:'Controles de vuelo'},
  {p:'Verdadero o falso: el Elevator controla el Roll.',o:['Verdadero','Falso'],a:1,e:'El elevator controla el Pitch.',t:'Controles de vuelo'},
@@ -70,10 +70,13 @@ dash(){const t=total();const cur=PHASES[0].t.find(x=>!S.done[key(1,x)])||'Fase 1
  <div class="card"><div class="cap">HORAS EN SIMULADOR</div><div class="big">${(sim/60).toFixed(1)}</div></div></div>
  <h2>Referencia</h2><div class="card"><div class="mono" style="color:var(--am);font-size:20px">SKBG</div><div>Aeropuerto Internacional Palonegro — Bucaramanga, Colombia</div><button class="btn g" style="margin-top:10px" onclick="go('apt');aptSel='SKBG';render()">Abrir ficha de estudio</button></div>`},
 acad(){if(lesson)return V.lesson();return `<h1>Academia</h1><p class="sub">Ocho fases, de los fundamentos a la aviación comercial.</p>`+PHASES.map(p=>`<div class="card" style="margin-bottom:14px"><div class="row" style="justify-content:space-between"><h3>Fase ${p.id} — ${p.n}</h3><span class="mono" style="color:var(--am)">${phasePct(p)}%</span></div><div class="bar"><i style="width:${phasePct(p)}%"></i></div>`+p.t.map(t=>`<button class="opt" onclick="openL(${p.id},'${t.replace(/'/g,"\\'")}')"><span class="row" style="justify-content:space-between"><span>${t}</span><span class="tag ${S.done[key(p.id,t)]?'real':''}">${S.done[key(p.id,t)]?'COMPLETADA':LESSONS[t]?'DISPONIBLE':'PRÓXIMAMENTE'}</span></span></button>`).join('')+`</div>`).join('')},
-lesson(){const L=LESSONS[lesson.t],k=key(lesson.p,lesson.t);
+lesson(){lessonQ={n:0,ok:0};const L=LESSONS[lesson.t],k=key(lesson.p,lesson.t);
  if(!L)return `<button class="btn g" onclick="lesson=null;render()">Volver</button><h1 style="margin-top:14px">${lesson.t}</h1><div class="card">Esta lección se incluirá en una próxima versión. Puedes marcarla como completada si ya dominas el tema.</div><p><button class="btn" onclick="toggle('${k}')">${S.done[k]?'Desmarcar':'Marcar como completada'}</button></p>`;
  return `<button class="btn g" onclick="lesson=null;render()">Volver</button><h1 style="margin-top:14px">${lesson.t}</h1><div class="row"><span class="tag">${L.lvl}</span><span class="tag">${L.min} MIN</span></div>
- <div class="card" style="margin-top:14px"><div class="lesson-body">${L.body}</div>${L.svg===false?'':planeSVG()}</div>h2>Preguntas rápidas</h2>`+L.q.map((q,i)=>qHTML(q,'L'+i)).join('')+`<p><button class="btn" onclick="toggle('${k}')">${S.done[k]?'Desmarcar':'Marcar como completada'}</button></p>`},
+ <div class="card" style="margin-top:14px"><div class="lesson-body">${L.body}</div>${L.svg===false?'':planeSVG()}</div><h2>Preguntas rápidas</h2><div id="qz">`+L.q.map((q,i)=>qHTML(q,'L'+i)).join('')+`</div>
+ <div class="card" style="margin-top:14px"><div id="qs" class="cap">Respondidas 0/${L.q.length} · Correctas 0</div><div id="qm" class="fb" hidden></div>
+ <div class="row" style="margin-top:10px"><button id="bc" class="btn" ${S.done[k]?'':'disabled'} onclick="toggle('${k}')">${S.done[k]?'Desmarcar':'Marcar como completada'}</button><button id="br" class="btn g" hidden onclick="retryQ()">Volver a intentar</button></div>
+ ${S.done[k]?'':'<div style="color:var(--mu);font-size:13px;margin-top:8px">Para completar la lección, todas las preguntas deben estar correctas.</div>'}</div>`},
 exam(){if(!examState)return `<h1>Exámenes</h1><p class="sub">Evalúa lo aprendido. Los temas con errores aparecerán para repaso.</p><div class="card"><h3>Examen general</h3><p style="color:var(--mu)">${EXAM.length} preguntas de selección múltiple y verdadero/falso.</p><button class="btn" onclick="startExam()">Iniciar examen</button></div>`+(S.exams.length?`<h2>Historial</h2><div class="card tl">`+S.exams.slice().reverse().map(e=>`<div><span class="mono">${e.d}</span><span>${e.s}/${e.n} — ${pct(e.s,e.n)}%</span></div>`).join('')+`</div>`:'');
  const e=examState;if(e.i>=EXAM.length)return `<h1>Resultado</h1><div class="card"><div class="big">${e.s}/${EXAM.length} — ${pct(e.s,EXAM.length)}%</div><p>Correctas: ${e.s} · Incorrectas: ${EXAM.length-e.s}</p>${e.miss.length?`<h3>Temas que necesitan repaso</h3><p>${[...new Set(e.miss)].join(', ')}</p>`:'<p>Sin temas pendientes de repaso.</p>'}<button class="btn" onclick="examState=null;render()">Cerrar</button></div>`;
  return `<h1>Pregunta ${e.i+1} de ${EXAM.length}</h1><div class="bar"><i style="width:${pct(e.i,EXAM.length)}%"></i></div>`+qHTML(EXAM[e.i],'E',true)},
@@ -137,7 +140,14 @@ function qHTML(q,id,isExam){return `<div class="card" id="${id}"><b>${q.p}</b>`+
 function ans(b,i,id,isExam){const box=b.closest('.card'),q=isExam?EXAM[examState.i]:LESSONS[lesson.t].q[+id.slice(1)];if(box.dataset.d)return;box.dataset.d=1;
  [...box.querySelectorAll('.opt')].forEach((x,j)=>{if(j===q.a)x.classList.add('ok');else if(j===i)x.classList.add('no')});
  const f=box.querySelector('.fb');f.hidden=false;f.innerHTML=(i===q.a?'Correcto. ':'Incorrecto. ')+q.e;
- if(isExam){if(i===q.a)examState.s++;else examState.miss.push(q.t);f.insertAdjacentHTML('afterend','<p><button class="btn" onclick="examState.i++;render()">Continuar</button></p>')}}
+ if(isExam){if(i===q.a)examState.s++;else examState.miss.push(q.t);f.insertAdjacentHTML('afterend','<p><button class="btn" onclick="examState.i++;render()">Continuar</button></p>')}
+ else{lessonQ.n++;if(i===q.a)lessonQ.ok++;qUI()}}
+let lessonQ={n:0,ok:0};
+function qUI(){const L=LESSONS[lesson.t],t=L.q.length,k=key(lesson.p,lesson.t),wrong=lessonQ.n-lessonQ.ok,pass=lessonQ.n===t&&wrong===0,m=$('#qm');
+ $('#qs').textContent=`Respondidas ${lessonQ.n}/${t} · Correctas ${lessonQ.ok}`;
+ $('#bc').disabled=!S.done[k]&&!pass;$('#br').hidden=wrong===0;m.hidden=!(wrong>0||pass);
+ m.innerHTML=wrong>0?'Tienes al menos una respuesta incorrecta. Puedes terminar de responder y revisar las explicaciones, pero para completar la lección todas deben estar correctas. Pulsa "Volver a intentar".':'Todas correctas. Ya puedes marcar la lección como completada.'}
+function retryQ(){render();$('#qz').scrollIntoView({behavior:'smooth'})}
 function dictH(q){return DICT.filter(d=>(d[0]+d[1]).toLowerCase().includes(q.toLowerCase())).map(d=>`<div class="card"><div class="mono" style="color:var(--am)">${d[0]}</div><h3>${d[1]}</h3><div style="color:var(--mu)">${d[2]}</div><div class="mono" style="font-size:12.5px;margin-top:6px">${d[3]}</div></div>`).join('')||'Sin resultados.'}
 function dictF(){$('#dl').innerHTML=dictH($('#q').value)}
 let editId=null;
