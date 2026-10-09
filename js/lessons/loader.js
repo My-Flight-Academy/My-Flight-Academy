@@ -2,6 +2,7 @@
 // Los archivos que solo tienen la plantilla comentada no hacen nada hasta que los actives.
 (function(){
  const base='js/lessons/',FILES=[
+  'fase1-fundamentos-de-aviacion/examen.js',
   'fase1-fundamentos-de-aviacion/partes-del-avion.js',
   'fase1-fundamentos-de-aviacion/controles-de-vuelo.js',
   'fase1-fundamentos-de-aviacion/pitch-roll-y-yaw.js',
