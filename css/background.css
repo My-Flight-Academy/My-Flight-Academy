@@ -1,0 +1,51 @@
+/* ==========================================================================
+   Fondo técnico aeronáutico — capa decorativa detrás del contenido.
+   Conserva la cuadrícula actual (definida en styles.css) y le suma:
+   · una carta IFR esquemática en torno a SKBG (SVG ligero, opacidad 4-10 %),
+   · un efecto de radar casi imperceptible.
+   Solo toca el fondo: no cambia colores, tipografía, tarjetas ni sidebar.
+   ========================================================================== */
+
+/* El contenido siempre queda por encima de la capa decorativa. */
+#app{position:relative;z-index:1}
+
+/* Capa 1: carta esquemática. Empieza junto al sidebar y se desplaza muy despacio. */
+body::before{
+ content:"";position:fixed;z-index:0;pointer-events:none;
+ top:-24px;right:-24px;bottom:-24px;left:208px;
+ background:url("../images/fondo/carta.svg") right bottom/cover no-repeat;
+ animation:fa-deriva 240s ease-in-out infinite alternate;
+ will-change:transform;
+}
+
+/* Capa 2: anillos de distancia y barrido de radar, en la esquina inferior derecha. */
+body::after{
+ content:"";position:fixed;z-index:0;pointer-events:none;
+ width:1000px;height:1000px;right:-380px;bottom:-380px;border-radius:50%;
+ background:
+  conic-gradient(from 0deg,rgba(61,139,217,.07) 0deg,rgba(61,139,217,.02) 55deg,rgba(61,139,217,0) 85deg,rgba(61,139,217,0) 360deg),
+  repeating-radial-gradient(circle,rgba(61,139,217,0) 0 119px,rgba(61,139,217,.06) 119px 120px);
+ -webkit-mask-image:radial-gradient(circle closest-side,#000 0,#000 55%,transparent 100%);
+ mask-image:radial-gradient(circle closest-side,#000 0,#000 55%,transparent 100%);
+ animation:fa-radar 90s linear infinite;
+ will-change:transform;
+}
+
+@keyframes fa-deriva{from{transform:translate(0,0)}to{transform:translate(16px,-12px)}}
+@keyframes fa-radar{to{transform:rotate(360deg)}}
+
+/* Tablet: radar más pequeño. */
+@media (max-width:1024px){
+ body::after{width:720px;height:720px;right:-300px;bottom:-300px}
+}
+
+/* Móvil: sin sidebar lateral, menos elementos, sin animaciones. */
+@media (max-width:760px){
+ body::before{left:-24px;background-image:url("../images/fondo/carta-movil.svg");animation:none;will-change:auto}
+ body::after{display:none}
+}
+
+/* Respeta la preferencia de movimiento reducido. */
+@media (prefers-reduced-motion:reduce){
+ body::before,body::after{animation:none;will-change:auto}
+}

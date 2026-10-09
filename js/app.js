@@ -97,22 +97,21 @@ comm(){const C=Object.keys(PH),e=EX[exI%EX.length];
  PH[cm].map((p,i)=>`<div class="card" style="margin-bottom:12px"><div class="row" style="justify-content:space-between"><span class="tag">${p.t}</span><button class="btn g" onclick="sayP('${cm}',${i})">Escuchar</button></div><div class="cap" style="margin-top:10px">ATC</div><div class="mono">${p.a}</div><div class="cap" style="margin-top:8px">PILOTO</div><div class="mono" style="color:var(--am)">${p.p}</div><div style="color:var(--mu);margin-top:8px">${p.es}</div></div>`).join('')+
  `<h2>Ejercicio de readback</h2><div class="card"><label class="chk" style="color:var(--tx)"><input type="checkbox" ${exH?'checked':''} onchange="exH=this.checked;render()"> Modo escucha (ocultar el texto)</label><div class="row" style="margin:8px 0"><button class="btn" onclick="sayE()">Escuchar instrucción</button></div>${exH?'':`<div class="mono" style="margin:8px 0">${e.a}</div>`}<b>¿Cuál es el readback correcto?</b>`+e.o.map((o,i)=>`<button class="opt mono" onclick="exAns(this,${i})">${o}</button>`).join('')+`<div class="fb" hidden></div></div>
  <div class="note">Fraseología de estilo ICAO con fines de estudio. Las frases exactas varían según el país, el espacio aéreo y la publicación vigente (por ejemplo ICAO Doc 4444 y Doc 9432, y la normativa de tu autoridad). Matrículas, frecuencias y números de los ejemplos son ficticios. La voz usa la síntesis de tu navegador y no reemplaza escuchar comunicaciones reales.</div>`},
-apt(){if(aptSel)return V.aptD();
+apt(){seedApt();if(aptSel)return V.aptD();
  const f=(i,l,ph,w)=>`<div><label>${l}</label><input id="n_${i}" placeholder="${ph}" ${w?'maxlength="'+w+'"':''}></div>`;
  return `<h1>Aeropuertos</h1><p class="sub">Fichas de estudio por aeropuerto. Tú completas los datos operativos desde la publicación oficial.</p>
  <input id="aq" placeholder="Buscar por ICAO, IATA, nombre o ciudad" value="${esc(aptQ)}" oninput="aptF()" style="max-width:380px"><div id="al" class="grid" style="margin-top:14px">${aptCards(aptQ)}</div>
  <h2>Añadir aeropuerto</h2><div class="card"><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${f('i','ICAO','SKXX',4)}${f('a','IATA','XXX',3)}${f('m','Nombre','Aeropuerto...')}${f('c','Ciudad','')}${f('p','País','Colombia')}</div><p><button class="btn" onclick="addApt()">Añadir</button></p></div>
  <div class="note">Los datos de pistas, elevación, frecuencias y procedimientos no vienen precargados: pueden cambiar y deben tomarse de la publicación vigente (AIP de Colombia, publicado por la Aerocivil, o la de tu país). Registra siempre la fuente y la fecha.</div>`},
-aptD(){const a=allApt().find(x=>x.icao===aptSel),saved=S.apt[a.icao],d=saved||APT_REF[a.icao]||{},isRef=!saved&&!!APT_REF[a.icao];
- const sf=k=>`<input id="a_s_${k}" class="mono" style="margin-top:6px;font-size:12px" value="${esc(d['s_'+k]||'')}" placeholder="Fuente: AIP → AD 2 ${a.icao} → AD 2.xx">`;
- const ta=(k,l,ph,r)=>`<div style="margin-top:14px"><label>${l}</label><textarea id="a_${k}" rows="${r}" class="mono" placeholder="${ph}">${esc(d[k]||'')}</textarea>${sf(k)}</div>`;
+aptD(){const a=allApt().find(x=>x.icao===aptSel),d=S.apt[a.icao]||{},sk=a.icao==='SKBG';
+ const H=t=>`<div class="cap" style="margin:3px 0 6px;font-weight:400">Dónde buscar: AIP → AD 2 ${a.icao} → ${t}</div>`;
+ const ta=(k,l,ph,r,h)=>`<div style="margin-top:12px"><label>${l}</label>${h?H(h):''}<textarea id="a_${k}" rows="${r}" class="mono" placeholder="${ph}">${esc(d[k]||'')}</textarea></div>`;
  return `<button class="btn g" onclick="aptSel=null;render()">Volver</button>
  <div class="card hero" style="margin-top:14px"><div class="mono big">${a.icao}</div><h3 style="font-size:20px">${a.name}</h3><div class="row"><span>${a.city}, ${a.country}</span>${a.iata?`<span class="tag">IATA ${a.iata}</span>`:''}${a.icao==='SKBG'?'<span class="tag real">REFERENCIA</span>':''}</div></div>
- ${isRef?'<div class="note">Datos de referencia precargados desde el AIP de Colombia. Revisa el ciclo AIRAC y pulsa «Guardar ficha» para conservarlos.</div>':''}
- <div class="card" style="margin-top:14px"><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"><div><label>Elevación (ft)</label><input id="a_elev" class="mono" value="${esc(d.elev||'')}">${sf('elev')}</div><div><label>Fuente y fecha de la información</label><input id="a_src" value="${esc(d.src||'')}" placeholder="Ej.: AIP Colombia AD 2 ${a.icao}, AIRAC AMDT xx/xx (fecha)"></div></div>
- ${ta('rwy','Pistas (designación, longitud, superficie)','Una por línea',6)}${ta('freq','Frecuencias (Tower, Ground, ATIS...)','Una por línea',8)}${ta('proc','SID, STAR, aproximaciones y fixes','Según la publicación vigente',10)}${ta('notes','Notas de estudio','Observaciones propias',5)}
- <div class="row" style="margin-top:14px"><button class="btn" onclick="saveApt()">Guardar ficha</button>${APT_REF[a.icao]?'<button class="btn g" onclick="restoreApt()">Restaurar datos de referencia</button>':''}${a.custom?'<button class="btn g" onclick="delApt()">Eliminar aeropuerto</button>':''}</div></div>
- <div class="note">Material de estudio. Los datos aeronáuticos reales cambian cada ciclo AIRAC; no los uses para navegar. Fuente oficial: <a href="https://www.aerocivil.gov.co/servicios-a-la-navegacion/servicio-de-informacion-aeronautica-ais/aip" target="_blank" rel="noopener" style="color:var(--bl)">AIP Colombia (Aerocivil)</a>. ${a.icao==='SKBG'?'Los datos de Microsoft Flight Simulator pueden diferir de la publicación real, así que anota de cuál provienen.':''}</div>`},
+ <div class="card" style="margin-top:14px"><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))"><div><label>Elevación (ft)</label>${H('AD 2.2, numeral 3 (Elevación / Temperatura de referencia)')}<input id="a_elev" class="mono" value="${esc(d.elev||'')}"></div><div><label>Fuente y fecha de la información</label><div class="cap" style="margin:3px 0 6px;font-weight:400">Dónde buscar: encabezado de las páginas del AIP (AIRAC AMDT y fecha)</div><textarea id="a_src" rows="6" class="mono" placeholder="Ej.: AIP Colombia, AD 2 ${a.icao}, AIRAC AMDT y fecha">${esc(d.src||'')}</textarea></div></div>
+ ${ta('rwy','Pistas (designación, longitud, superficie)','Una por línea',sk?8:3,'AD 2.12 (características físicas) y AD 2.13 (distancias declaradas)')}${ta('freq','Frecuencias (Tower, Ground, ATIS...)','Una por línea',sk?7:3,'AD 2.18 (comunicaciones ATS) y AD 2.19 (radioayudas)')}${ta('proc','SID, STAR, aproximaciones y fixes','Según la publicación vigente',sk?11:4,'AD 2.24 (cartas: SID, STAR, IAC) y carta de coordenadas de WPT de procedimientos PBN')}${ta('notes','Notas de estudio','Observaciones propias',sk?8:3,'AD 2.17, 2.20 y 2.23 (espacio aéreo, reglamentación local e información suplementaria)')}
+ <div class="row" style="margin-top:14px"><button class="btn" onclick="saveApt()">Guardar ficha</button>${sk?'<button class="btn g" onclick="resetSkbg()">Restaurar datos del AIP</button>':''}${a.custom?'<button class="btn g" onclick="delApt()">Eliminar aeropuerto</button>':''}</div></div>
+ <div class="note">Material de estudio. Los datos aeronáuticos reales cambian; no los uses para navegar. ${sk?'Los datos de SKBG se precargaron del AIP de Colombia, consultado en una copia de terceros y no en el sitio de Aerocivil, y con enmiendas de distintas fechas. Compruébalos en el AIP vigente de Aerocivil antes de darlos por actuales. Los datos de Microsoft Flight Simulator pueden diferir de la publicación real, así que anota de cuál provienen.':''}</div>`},
 car(){return `<h1>Cartas aeronáuticas</h1><p class="sub">Biblioteca de cartas para estudio, con visor de zoom, desplazamiento y pantalla completa.</p>
  <div class="card"><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))"><div><label>Tipo</label><select id="c_t">${CT.map(c=>`<option>${c}</option>`).join('')}</select></div><div><label>ICAO (opcional)</label><input id="c_i" class="mono" maxlength="4" placeholder="SKBG"></div><div><label>Vigencia o ciclo (obligatorio)</label><input id="c_v" placeholder="Ej.: AIRAC 2610"></div><div><label>Carta (imagen o PDF)</label><input type="file" multiple accept=".pdf,image/*" onchange="upFiles(this,'car')"></div></div></div>
  <div class="row" style="margin-top:14px"><input id="c_q" placeholder="Buscar" oninput="libDraw()" style="max-width:300px"><select id="c_f" onchange="libDraw()" style="max-width:200px"><option value="">Todos los tipos</option>${CT.map(c=>`<option>${c}</option>`).join('')}</select></div>
@@ -225,29 +224,61 @@ function exAns(b,i){const box=b.closest('.card'),e=EX[exI%EX.length];if(box.data
 let aptSel=null,aptQ='';
 const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const APT0=[['SKBG','BGA','Aeropuerto Internacional Palonegro','Bucaramanga','Colombia'],['SKSP','ADZ','Aeropuerto Internacional Gustavo Rojas Pinilla','San Andrés','Colombia'],['SKBO','BOG','Aeropuerto Internacional El Dorado','Bogotá','Colombia'],['SKRG','MDE','Aeropuerto Internacional José María Córdova','Rionegro','Colombia'],['SKCL','CLO','Aeropuerto Internacional Alfonso Bonilla Aragón','Cali / Palmira','Colombia'],['SKCG','CTG','Aeropuerto Internacional Rafael Núñez','Cartagena','Colombia']].map(a=>({icao:a[0],iata:a[1],name:a[2],city:a[3],country:a[4]}));
-const APT_REF={SKBG:{
- elev:'3901',
- s_elev:'AIP Colombia → AD 2 SKBG → AD 2.2, numeral 3 (1189 m · T ref 28 °C) · AIRAC AMDT 67/24, 28 NOV 2024',
- src:'AIP Colombia AD 2 SKBG · Aerocivil / AIS Colombia · AIRAC AMDT 70/26 (22 JAN 2026). Cada página del AIP trae su propio ciclo: verifica el vigente.',
- rwy:['RWY 17/35 · 2102 x 45 m · Asfalto · PCN 60/F/C/W/T','RWY 17: THR ELEV 3901 ft · BRG 159° GEO / 168° MAG','RWY 35: THR ELEV 3854 ft · BRG 339° GEO / 348° MAG','TORA/TODA/ASDA/LDA RWY 17: 2252 / 2402 / 2252 / 2102 m','TORA/TODA/ASDA/LDA RWY 35: 2226 / 2376 / 2226 / 2102 m'].join('\n'),
- s_rwy:'AIP → AD 2 SKBG → AD 2.12 (características físicas) y AD 2.13 (distancias declaradas) · AIRAC AMDT 70/26',
- freq:['TWR Palonegro: 118.300 MHz (alterna 118.050)','APP Bucaramanga: 119.000 MHz (alterna 119.400)','ATIS Bucaramanga: 127.750 MHz','EMERG: 121.500 MHz','GND: no figura en AD 2.18','Horario ATS: 0000-0430 y 1030-2359 UTC','ILS CAT I RWY 35: LOC IBGA 110.70 MHz · GP 330.20 MHz · DME CH44X','DVOR/DME PIE: 116.80 MHz (CH115X)'].join('\n'),
- s_freq:'AIP → AD 2 SKBG → AD 2.18 (AMDT 70/26) y AD 2.19 radioayudas (AMDT 69/25)',
- proc:['SID RWY 35: EJA2D UBMU1A · ESNU1F MOGO1E VOVG1A','SID RWY 35 RNAV: EJA2F UBMU1C · ESNU2H · MOGO1B UMKA1A VOVG1C','SID RWY 17: EJA1E UBMU1B · ESNU1G MOGO1F VOVG1B','SID RWY 17 RNAV: EJA1G MOGO1G UMKA1B VOVG1D · ESNU2J UBMU2D','STAR RWY 35/17: MOGO2A OPRO1A · EJA1H IVRI1A POXO1H TORA1Q VOVG1E','STAR RWY 35 RNAV: MOGO2C OPRO1B VOVG1F · IVRI1B POXO2F TORA1R UMKA2C','STAR RWY 17 RNAV: EJA2C MOGO2D OPRO1C POXO1J VOVG1G · IVRI1C TORA1S','IAC: ILS Z/LOC Z RWY 35 · ILS Y/LOC Y RWY 35 · VOR RWY 35 · VOR A RWY 17 · RNP RWY 35 · RNP RWY 17','VAC: salidas y llegadas visuales (AZUFRADA, CHOCOA, CHUCURI, PANTANO/RIO, MALAGA, BARRANCA)','Fixes: SIGOX KILIB ROLOV POXOM ESNUT UBMUN MOGOS OPROG SANLU EJA PIE (coordenadas en la carta WPT PBN)'].join('\n'),
- s_proc:'AIP → AD 2 SKBG → AD 2.24 (cartas SID, STAR, IAC, VAC y WPT PBN) · AIRAC AMDT 68/25 a 70/26',
- notes:['• Declinación magnética: 9° W (2020).','• CTR Bucaramanga: clase D, GND a 6000 ft AMSL. Altitud de transición: 18000 ft.','• Vuelos de instrucción: los autoriza la TWR; no se autorizan 0000-1200 ni 2100-2359 UTC.','• RWY 17: contaminación por caucho, ejercer precaución.','• Precaución en despegues y aterrizajes por concentración de aves en RWY 17/35.'].join('\n'),
- s_notes:'AIP → AD 2 SKBG → AD 2.2 (num. 5), AD 2.12, AD 2.17, AD 2.20 y AD 2.23'
-}};
 const allApt=()=>[...APT0,...S.custom.map(c=>Object.assign({custom:1},c))];
 function aptCards(q){const l=allApt().filter(a=>(a.icao+a.iata+a.name+a.city+a.country).toLowerCase().includes(q.toLowerCase().trim()));
- return l.map(a=>{const f=Object.values(S.apt[a.icao]||APT_REF[a.icao]||{}).some(v=>String(v).trim());return `<button class="card" style="text-align:left;color:inherit;font:inherit;cursor:pointer" onclick="aptSel='${a.icao}';render();scrollTo(0,0)"><div class="row" style="justify-content:space-between"><span class="mono" style="color:var(--am);font-size:20px">${a.icao}</span><span class="tag">${a.iata||'--'}</span></div><h3 style="margin-top:6px">${a.name}</h3><div style="color:var(--mu)">${a.city}, ${a.country}</div><div class="row" style="margin-top:8px"><span class="tag ${f?'real':''}">${f?'FICHA CON DATOS':'DATOS PENDIENTES'}</span>${a.icao==='SKBG'?'<span class="tag sim">REFERENCIA</span>':''}</div></button>`}).join('')||'<div class="note">Sin resultados.</div>'}
+ return l.map(a=>{const f=Object.values(S.apt[a.icao]||{}).some(v=>String(v).trim());return `<button class="card" style="text-align:left;color:inherit;font:inherit;cursor:pointer" onclick="aptSel='${a.icao}';render();scrollTo(0,0)"><div class="row" style="justify-content:space-between"><span class="mono" style="color:var(--am);font-size:20px">${a.icao}</span><span class="tag">${a.iata||'--'}</span></div><h3 style="margin-top:6px">${a.name}</h3><div style="color:var(--mu)">${a.city}, ${a.country}</div><div class="row" style="margin-top:8px"><span class="tag ${f?'real':''}">${f?'FICHA CON DATOS':'DATOS PENDIENTES'}</span>${a.icao==='SKBG'?'<span class="tag sim">REFERENCIA</span>':''}</div></button>`}).join('')||'<div class="note">Sin resultados.</div>'}
 function aptF(){aptQ=$('#aq').value;$('#al').innerHTML=aptCards(aptQ)}
 function addApt(){const g=i=>$('#n_'+i).value.trim(),ic=g('i').toUpperCase();
  if(!/^[A-Z]{4}$/.test(ic)||!g('m')){alert('Ingresa un código ICAO de 4 letras y el nombre.');return}
  if(allApt().some(a=>a.icao===ic)){alert('Ese aeropuerto ya existe.');return}
  S.custom.push({icao:ic,iata:g('a').toUpperCase(),name:g('m'),city:g('c')||'N/D',country:g('p')||'N/D'});save();aptQ='';render()}
-function saveApt(){const g=k=>$('#a_'+k).value.trim(),o={};['elev','rwy','freq','proc','notes'].forEach(k=>{o[k]=g(k);o['s_'+k]=g('s_'+k)});o.src=g('src');S.apt[aptSel]=o;save();render();alert('Ficha guardada.')}
-function restoreApt(){if(APT_REF[aptSel]&&confirm('¿Reemplazar los datos de esta ficha por los de referencia?')){S.apt[aptSel]=JSON.parse(JSON.stringify(APT_REF[aptSel]));save();render()}}
+const SKBG_SEED={
+elev:'3901 ft (1189 m) · temperatura de referencia 28 °C',
+src:`AIP Colombia, AD 2 SKBG (Aerocivil / AIS Colombia).
+Consultado el 08 OCT 2026 en una copia de terceros (atccol.com), NO en el sitio de Aerocivil. Páginas de distintas enmiendas:
+- AD 2.2 y AD 2.3: AIRAC AMDT 67/24, 28 NOV 2024
+- AD 2.12, 2.13, 2.17, 2.18, 2.23 y lista de cartas 2.24: AIRAC AMDT 70/26, 22 JAN 2026
+- AD 2.19 y AD 2.20: AIRAC AMDT 69/25, 02 OCT 2025
+Puede haber enmiendas posteriores. Verificar en el AIP vigente de Aerocivil.`,
+rwy:`RWY 17/35 · 2102 x 45 m · asfalto · PCN 60/F/C/W/T
+RWY 17: THR 3901 ft · BRG MAG 168° (GEO 159°)
+RWY 35: THR 3854 ft · BRG MAG 348° (GEO 339°)
+Distancias declaradas (AD 2.13), en metros:
+RWY 17: TORA 2252 · TODA 2402 · ASDA 2252 · LDA 2102
+RWY 35: TORA 2226 · TODA 2376 · ASDA 2226 · LDA 2102
+Obs. RWY 17: contaminación por caucho, ejercer precaución.`,
+freq:`TWR Palonegro: 118.300 MHz (alterna 118.050)
+APP Bucaramanga: 119.000 MHz (alterna 119.400)
+ATIS Bucaramanga: 127.750 MHz
+Emergencia: 121.500 MHz
+Horario de los servicios ATS en el AIP: 0000-0430 y 1030-2359
+Radioayudas (AD 2.19): ILS CAT I RWY 35 · LOC IBGA 110.70 MHz · GP 330.20 MHz · DME CH44X
+DVOR/DME PIE: 116.80 MHz (CH115X)`,
+proc:`IAC (cartas de aproximación por instrumentos):
+ILS Z / LOC Z RWY 35 · ILS Y / LOC Y RWY 35 · VOR RWY 35 · VOR A RWY 17 · RNP RWY 35 · RNP RWY 17
+SID convencionales:
+EJA2D, UBMU1A (RWY 35) · ESNU1F, MOGO1E, VOVG1A (RWY 35) · EJA1E, UBMU1B (RWY 17) · ESNU1G, MOGO1F, VOVG1B (RWY 17)
+SID RNAV:
+RWY 35: EJA2F, UBMU1C · ESNU2H · MOGO1B, UMKA1A, VOVG1C
+RWY 17: EJA1G, MOGO1G, UMKA1B, VOVG1D · ESNU2J, UBMU2D
+STAR:
+MOGO2A, OPRO1A (RWY 35 y 17) · EJA1H, IVRI1A, POXO1H, TORA1Q, VOVG1E (RWY 35 y 17)
+RNAV RWY 35: MOGO2C, OPRO1B, VOVG1F · IVRI1B, POXO2F, TORA1R, UMKA2C
+RNAV RWY 17: EJA2C, MOGO2D, OPRO1C, POXO1J, VOVG1G · IVRI1C, TORA1S
+Salidas y llegadas visuales (VAC): AZUFRADA, CHOCOA, CHUCURI, PANTANO, BARRANCA, RIO, MALAGA
+Fixes de referencia: SIGOX, KILIB, ROLOV, POXOM, ESNUT, UBMUN, MOGOS, OPROG y PIE (DVOR/DME)
+Sus coordenadas están en la carta de WPT de procedimientos PBN.`,
+notes:`- Elevación 3901 ft. Pistas 17/35 de asfalto, 2102 x 45 m.
+- RWY 35 cuenta con ILS CAT I publicado.
+- Precaución por concentración de aves en la pista 17/35 (AD 2.23).
+- CTR Bucaramanga: clase D, desde el suelo hasta 6000 ft AMSL. Altitud de transición 18000 ft (AD 2.17).
+- Comunicaciones (AD 2.24): saliendo, primero TWR 118.3 y luego APP 119.0. Llegando, primero APP 119.0 y luego TWR 118.3.
+- Los vuelos de instrucción los autoriza la torre y no se autorizan entre 0000-1200 y 2100-2359 UTC (AD 2.20).
+- Consultar siempre el AIP, el AIRAC y los NOTAM vigentes.`};
+function seedApt(){S.seeded=S.seeded||{};if(S.seeded.SKBG)return;const c=S.apt.SKBG;if(!c||!Object.values(c).some(v=>String(v).trim()))S.apt.SKBG=Object.assign({},SKBG_SEED);S.seeded.SKBG=1;save()}
+function resetSkbg(){if(confirm('¿Reemplazar la ficha de SKBG por los datos del AIP? Se perderán los cambios que hayas hecho en esta ficha.')){S.apt.SKBG=Object.assign({},SKBG_SEED);save();render()}}
+function saveApt(){const g=k=>$('#a_'+k).value.trim();S.apt[aptSel]={elev:g('elev'),src:g('src'),rwy:g('rwy'),freq:g('freq'),proc:g('proc'),notes:g('notes')};save();render();alert('Ficha guardada.')}
+function delApt(){if(confirm('¿Eliminar este aeropuerto y su ficha?')){S.custom=S.custom.filter(a=>a.icao!==aptSel);delete S.apt[aptSel];save();aptSel=null;render()}}
 const CT=['Airport','SID','STAR','Approach','Ground','Navigation'],LC=['Apuntes','Manuales','Cartas','Imágenes','Otros'];
 let LIB=[],LOK=0,LERR=0,DB=null,vz={s:1,x:0,y:0},vd=null;
 document.head.insertAdjacentHTML('beforeend','<style>#vw{position:fixed;inset:0;z-index:50;background:#050a12;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}#vw[hidden]{display:none}.vbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid #233450}#vb{flex:1;position:relative;overflow:hidden;touch-action:none;cursor:grab}#vb img{position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none}</style>');
