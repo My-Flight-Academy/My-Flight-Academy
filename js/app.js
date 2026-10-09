@@ -1,24 +1,32 @@
 // My Flight Academy - lógica de la aplicación
 // ---------- Datos (en una app real: /data y /types) ----------
-const ICONS={
- dash:'<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>',
- acad:'<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/>',
- exam:'<path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/>',
- prog:'<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>',
- log:'<path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4z"/><path d="M8 8h8M8 12h8"/>',
- sim:'<path d="M12 3l9 18-9-5-9 5z"/>',
- dict:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/>',
- route:'<circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6a4 4 0 000-8h-4a4 4 0 010-8h6"/>',
- plane:'<path d="M2 16l20-6-3-2-8 1-4-5-2 1 3 5-6 2z"/>',
- car:'<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>',
- lib:'<path d="M4 5a2 2 0 012-2h12v16H6a2 2 0 00-2 2z"/><path d="M8 7h6"/>',
- apt:'<path d="M12 21s-7-6.3-7-11a7 7 0 0114 0c0 4.7-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
- comm:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>',
- navi:'<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
- met:'<path d="M7 18a4 4 0 01-.5-8 5.5 5.5 0 0110.7 1A3.5 3.5 0 0117 18z"/>'
+const ICONS={ // Iconos lineales estilo Lucide (viewBox 24, trazo uniforme)
+ dash:'<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+ acad:'<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+ exam:'<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+ prog:'<path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>',
+ route:'<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+ navi:'<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
+ met:'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+ comm:'<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>',
+ apt:'<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+ car:'<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+ lib:'<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+ log:'<path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/>',
+ plane:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+ dict:'<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="m8 13 4-7 4 7"/><path d="M9.1 11h5.7"/>',
+ pclose:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>',
+ popen:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>'
 };
 const ic=k=>`<svg class="ic" viewBox="0 0 24 24">${ICONS[k]}</svg>`;
-const NAV=[['dash','Dashboard','dash'],['acad','Academia','acad'],['exam','Exámenes','exam'],['prog','Mi progreso','prog'],['navi','Navegación','navi'],['met','Meteorología','met'],['comm','Comunicaciones','comm'],['apt','Aeropuertos','apt'],['car','Cartas','car'],['lib','Biblioteca','lib'],['log','Diario de vuelo','log'],['sim','Simulador','sim'],['dict','Diccionario','dict'],['route','Mi ruta','route']];
+const NAV_GROUPS=[ // Menú lateral por categorías: [categoría, [[vista, texto, icono], ...]]
+ ['PRINCIPAL',[['dash','Dashboard','dash']]],
+ ['FORMACIÓN',[['acad','Academia','acad'],['exam','Exámenes','exam'],['prog','Mi progreso','prog'],['route','Mi ruta','route']]],
+ ['OPERACIONES',[['navi','Navegación','navi'],['met','Meteorología','met'],['comm','Comunicaciones','comm']]],
+ ['AEROPUERTOS Y CARTAS',[['apt','Aeropuertos','apt'],['car','Cartas','car']]],
+ ['HERRAMIENTAS',[['sim','Simulador','plane'],['log','Diario de vuelo','log']]],
+ ['REFERENCIA',[['lib','Biblioteca','lib'],['dict','Diccionario','dict']]]
+];
 
 const PHASES=[
  {id:1,n:'Fundamentos de aviación',t:['Partes del avión','Controles de vuelo','Pitch, Roll y Yaw','Flaps y Trim','Cuatro fuerzas del vuelo']},
@@ -397,8 +405,19 @@ function openL(p,t){lesson={p,t};const k=key(p,t);S.act=S.act||[];if(LESSONS[t]&
 function go(v){view=v;lesson=null;if(v!=='exam')examState=null;render();scrollTo(0,0)}
 function render(){
  if(view==='exam'&&examState&&examState.i>=examQ().length&&!examState.saved){examState.saved=1;S.exams.push({ph:examState.ph,d:new Date().toLocaleDateString('es-CO'),iso:today(),ts:Date.now(),s:examState.s,n:examQ().length,miss:[...new Set(examState.miss)]});save()}
- $('#nav').innerHTML=`<div class="brand">${ic('plane')}<span class="lb">Flight Academy</span></div>`+NAV.map(n=>`<button class="${view===n[0]?'on':''}" onclick="aptSel=null;go('${n[0]}')">${ic(n[2])}<span class="lb">${n[1]}</span></button>`).join('')+`<button id="col" onclick="$('#nav').classList.toggle('c')" style="margin-top:auto"><span class="lb">Contraer menú</span></button>`;
+$('#nav').innerHTML=`<div class="brand">${ic('plane')}<span class="lb">Flight Academy</span></div>`+NAV_GROUPS.map(g=>`<div class="nG" role="group" aria-label="${g[0]}"><div class="ng">${g[0]}</div>`+g[1].map(n=>`<button class="${view===n[0]?'on':''}" aria-label="${n[1]}"${view===n[0]?' aria-current="page"':''} onclick="closeNav();aptSel=null;go('${n[0]}')">${ic(n[2])}<span class="lb">${n[1]}</span></button>`).join('')+`</div>`).join('')+`<button id="col" aria-label="${$('#nav').classList.contains('c')?'Expandir menú':'Contraer menú'}" onclick="toggleNav()">${ic('pclose')}${ic('popen')}<span class="lb">Contraer menú</span></button>`;
  $('#main').innerHTML=`<section class="sec">${V[view]()}</section>`;
  if(view==='navi')calcW();if(view==='met')decM();if(view==='lib'||view==='car')libInit()}
+ // ---------- Menú lateral: contraer (se recuerda), panel en móvil y tooltips ----------
+function toggleNav(){const n=$('#nav'),c=n.classList.toggle('c');try{localStorage.setItem('fa_nav',c?'1':'0')}catch(e){}$('#col').setAttribute('aria-label',c?'Expandir menú':'Contraer menú');tip()}
+function openNav(){$('#nav').classList.add('open');$('#nbk').classList.add('show');$('#mb').setAttribute('aria-expanded','true')}
+function closeNav(){$('#nav').classList.remove('open');$('#nbk').classList.remove('show');$('#mb').setAttribute('aria-expanded','false')}
+function tip(b){const t=$('#ntip'),n=$('#nav');if(!b||!n.classList.contains('c')||innerWidth<=760){t.style.display='none';return}const r=b.getBoundingClientRect();t.textContent=b.getAttribute('aria-label');t.style.left=(r.right+10)+'px';t.style.top=(r.top+r.height/2)+'px';t.style.display='block'}
+try{if(localStorage.getItem('fa_nav')==='1')$('#nav').classList.add('c')}catch(e){}
+document.body.insertAdjacentHTML('beforeend','<div id="ntip" role="tooltip"></div>');
+$('#nav').addEventListener('mouseover',e=>tip(e.target.closest('button')));$('#nav').addEventListener('mouseleave',()=>tip());
+$('#nav').addEventListener('focusin',e=>tip(e.target.closest('button')));$('#nav').addEventListener('focusout',()=>tip());
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeNav()});
+addEventListener('resize',()=>{if(innerWidth>760)closeNav()});
 render();
 if(!S.name)welcome(false); // primer ingreso: pedir nombre y mostrar el aviso
