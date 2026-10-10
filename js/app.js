@@ -55,15 +55,35 @@ const $=s=>document.querySelector(s);
 const pct=(a,b)=>b?Math.round(100*a/b):0;
 const key=(p,t)=>p+'|'+t;
 const phasePct=p=>pct(p.t.filter(t=>S.done[key(p.id,t)]).length,p.t.length);
-const total=()=>{let a=0,b=0;PHASES.forEach(p=>p.t.forEach(t=>{b++;if(S.done[key(p.id,t)])a++}));return pct(a,b)};
+// ===== Ruta de formación: reglas centrales (las usan Mi ruta, el Dashboard y Mi progreso) =====
+// Una lección está «desarrollada» si tiene contenido (LESSONS). Según eso, una fase es:
+//   ready   -> todas sus lecciones están desarrolladas: forma parte de la ruta y del progreso general
+//   partial -> solo algunas lo están: «en desarrollo», no cuenta en el progreso general
+//   soon    -> ninguna lo está: «próximamente»
+// Fase completada = todas sus lecciones completadas + su examen realizado (si tiene examen).
+// Si se define EXAM_RULES[fase].pass (porcentaje mínimo), el examen además debe aprobarse.
+// Mientras no exista ese criterio, un examen solo puede figurar como «Realizado», nunca como «Aprobado».
+const EXAM_RULES={}; // ej.: {1:{pass:70}}
+const PHASE_INFO={1:{d:'Comprende la estructura de la aeronave, los controles que permiten maniobrarla y los principios físicos que explican el vuelo.'}};
+const lessonStarted=(pid,t)=>(S.act||[]).some(a=>a.k===key(pid,t)&&a.ty==='start');
+const lessonStatus=(pid,t)=>S.done[key(pid,t)]?'done':lessonStarted(pid,t)?'doing':'open';
+const phaseState=p=>{const n=p.t.filter(t=>LESSONS[t]).length;return n===0?'soon':n===p.t.length?'ready':'partial'};
+const readyPhases=()=>PHASES.filter(p=>phaseState(p)==='ready');
+const phaseDoneN=p=>p.t.filter(t=>S.done[key(p.id,t)]).length;
+function examStatus(ph){const rule=EXAM_RULES[ph]&&EXAM_RULES[ph].pass,r=S.exams.filter(e=>e.ph===ph);if(!r.length)return 'pending';if(rule==null)return 'done';return r.some(e=>pct(e.s,e.n)>=rule)?'passed':'done'}
+function phaseComplete(p){if(phaseState(p)!=='ready'||phaseDoneN(p)<p.t.length)return false;if(!EXAMS[p.id])return true;const rule=EXAM_RULES[p.id]&&EXAM_RULES[p.id].pass,st=examStatus(p.id);return rule==null?st!=='pending':st==='passed'}
+function routeStats(){const R=readyPhases(),n=R.reduce((a,p)=>a+p.t.length,0),d=R.reduce((a,p)=>a+phaseDoneN(p),0);return{phases:R.length,phasesDone:R.filter(phaseComplete).length,lessons:n,done:d,pct:pct(d,n)}}
+function nextStep(){for(const p of readyPhases()){const i=p.t.findIndex(t=>!S.done[key(p.id,t)]);if(i>=0)return{type:'lesson',p,i,t:p.t[i],started:lessonStarted(p.id,p.t[i])};if(EXAMS[p.id]&&!phaseComplete(p))return{type:'exam',p,retry:examStatus(p.id)==='done'}}return{type:'end'}}
+const availList=()=>topicList().filter(x=>phaseState(x.p)==='ready');
+const total=()=>routeStats().pct;
 const allDone=()=>Object.keys(S.done).filter(k=>S.done[k]).length;
 
 // ---------- Vistas ----------
 let view='dash',lesson=null,examState=null;
 const V={
-dash(){seedApt();const t=total(),L=topicList(),cur=L.find(x=>!x.done),nxt=cur,n=allDone(),
+dash(){seedApt();const t=total(),L=availList(),cur=L.find(x=>!x.done),nxt=cur,n=L.filter(x=>x.done).length,
   ex=S.exams[S.exams.length-1],lg=S.logs[S.logs.length-1],sim=S.logs.filter(l=>l.kind==='SIMULADOR').reduce((a,l)=>a+(+l.dur||0),0);
-  const st=[['prog','LECCIONES COMPLETADAS',`<div class="big">${n}</div>`,n?`De ${L.length} temas del plan.`:'Tu formación está comenzando.'],
+  const st=[['prog','LECCIONES COMPLETADAS',`<div class="big">${n}</div>`,n?`De ${L.length} lecciones disponibles.`:'Tu formación está comenzando.'],
    ['exam','ÚLTIMO EXAMEN',`<div class="big">${ex?ex.s+'/'+ex.n:'—'}</div>`,ex?`${esc(examLabel(ex))}${examIso(ex)?' · '+fmtD(examIso(ex)):''}`:'Sin exámenes realizados.'],
    ['log','ÚLTIMO VUELO',`<div class="big dh-flt">${lg?esc(lg.dep)+' → '+esc(lg.arr):'—'}</div>`,lg?`${lg.kind==='SIMULADOR'?'Simulador':'Vuelo real'} · ${esc(lg.ac)}`:'Aún no hay vuelos registrados.'],
    ['log','HORAS EN SIMULADOR',`<div class="big">${(sim/60).toFixed(1)}<span class="dh-u"> h</span></div>`,'Tiempo registrado.']];
@@ -148,8 +168,42 @@ log(){return `<h1>Diario de vuelo</h1><p class="sub">Registra vuelos de simulado
  <div class="grid" style="margin-top:14px"><div class="card"><div class="cap">TOTAL DE VUELOS</div><div class="big">${S.logs.length}</div></div><div class="card"><div class="cap">AEROPUERTOS</div><div class="big">${new Set(S.logs.flatMap(l=>[l.dep,l.arr])).size}</div></div></div>`},
 sim(){return `<h1>Simulador</h1><p class="sub">Checklists interactivas para Microsoft Flight Simulator.</p>`+Object.entries(CHK).map(([ac,ls])=>`<h2>${ac}</h2><div class="grid">`+Object.entries(ls).map(([n,it])=>`<div class="card"><h3>${n}</h3>`+it.map(x=>{const k=ac+n+x;return `<label class="chk" style="color:var(--tx);font-size:15px"><input type="checkbox" ${S.chk[k]?'checked':''} onchange="S.chk['${k}']=this.checked;save()"> ${x}</label>`}).join('')+`</div>`).join('')+`</div>`).join('')+`<div class="note">${SIMNOTE}</div>`},
 dict(){return `<h1>Diccionario aeronáutico</h1><p class="sub">English → Español</p><input id="q" placeholder="Buscar término" oninput="dictF()" style="max-width:340px"><div id="dl" class="grid" style="margin-top:14px">${dictH('')}</div>`},
-route(){const st=[['Conocimientos básicos','Ruta educativa'],['Fundamentos de vuelo','Ruta educativa'],['Navegación','Ruta educativa'],['Meteorología','Ruta educativa'],['Comunicaciones','Ruta educativa'],['Instrumentos','Ruta educativa'],['Piloto privado','Licencia: consultar requisitos oficiales'],['Habilitación de instrumentos','Licencia: consultar requisitos oficiales'],['Piloto comercial','Licencia: consultar requisitos oficiales']];
- return `<h1>Mi ruta para ser piloto</h1><p class="sub">Camino de formación hacia tu objetivo.</p><div class="card" style="padding-left:24px">`+st.map(s=>`<div class="step"><h3>${s[0]}</h3><span class="tag">${s[1]}</span></div>`).join('')+`</div><div class="note"><b>Ruta educativa general</b> orienta el estudio. <b>Requisitos oficiales</b> (horas, edad, certificado médico, exámenes) varían según el país y los define la autoridad aeronáutica; en Colombia, la Aerocivil. Consulta siempre su normativa vigente.</div>`}
+route(){
+ const st=routeStats(),ns=nextStep(),NW=['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez'],
+  ICO={done:'<circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>',doing:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',open:'<circle cx="12" cy="12" r="9"/><path d="m10 8 5 4-5 4z"/>'},
+  LAB={done:'COMPLETADA',doing:'EN CURSO',open:'DISPONIBLE'},
+  anyStarted=readyPhases().some(p=>p.t.some(t=>lessonStatus(p.id,t)!=='open')),
+  svg=k=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICO[k]}</svg>`,
+  row=(p,t,i,num,isCur)=>{const s=lessonStatus(p.id,t);return `<li><button class="rt-l${isCur?' rt-cur':''}" onclick="openTopic(${p.id},${i})" aria-label="Abrir lección ${num}: ${esc(t)}. Estado: ${LAB[s].toLowerCase()}"><span class="rt-n mono">${String(num).padStart(2,'0')}</span><span class="rt-t">${esc(t)}</span><span class="rt-s rt-${s}">${svg(s)}${LAB[s]}</span></button></li>`};
+ // Siguiente paso
+ let nt,nd,nb,na;
+ if(ns.type==='lesson'){nt=(ns.started||anyStarted?'Continúa con ':'Comienza con ')+ns.t;nd=(TOPIC_INFO[ns.t]||{}).d||'';nb=ns.started?'Continuar lección':anyStarted?'Estudiar lección':'Comenzar lección';na=`openTopic(${ns.p.id},${ns.i})`}
+ else if(ns.type==='exam'){nt=(ns.retry?'Repite':'Realiza')+' el examen de la Fase '+ns.p.id;nd=ns.retry?'Aún no alcanzas el resultado necesario. Repasa las lecciones y vuelve a intentarlo.':'Ya completaste todas las lecciones de la fase. Comprueba tus conocimientos.';nb=ns.retry?'Repetir examen':'Realizar examen';na=`go('exam');startExam(${ns.p.id})`}
+ else{nt='Has terminado el contenido disponible';nd='Las próximas fases se añadirán más adelante. Mientras tanto, puedes repasar las lecciones en la Academia.';nb='Ir a la Academia';na="go('acad')"}
+ const stat=[['FASES DISPONIBLES',st.phases,`${PHASES.length-st.phases} en desarrollo o próximamente`],['FASES COMPLETADAS',st.phasesDone,`de ${st.phases} disponibles`],['LECCIONES COMPLETADAS',st.done,`de ${st.lessons} disponibles`],['PROGRESO GENERAL',st.pct+'%','de las lecciones disponibles']];
+ const blocks=PHASES.map(p=>{
+  const ps=phaseState(p),info=PHASE_INFO[p.id]||{};
+  if(ps==='soon')return `<section class="card rt-p rt-soon" aria-label="Fase ${p.id} — ${esc(p.n)}: próximamente"><div><div class="cap">FASE ${p.id}</div><h2>Fase ${p.id} — ${esc(p.n)}</h2><p class="rt-d">Sus contenidos están pendientes de desarrollo.</p></div><span class="tag">PRÓXIMAMENTE</span></section>`;
+  if(ps==='partial'){const L=p.t.map((t,i)=>({t,i})).filter(x=>LESSONS[x.t]);return `<section class="card rt-p" aria-label="Fase ${p.id} — ${esc(p.n)}: en desarrollo"><div class="rt-h"><div><div class="cap">FASE ${p.id}</div><h2>Fase ${p.id} — ${esc(p.n)}</h2><p class="rt-d">Esta fase está en desarrollo: ya hay lecciones disponibles y el resto está pendiente de desarrollo. Todavía no cuenta en el progreso general.</p></div><span class="tag">EN DESARROLLO</span></div><ol class="rt-ls">${L.map((x,k)=>row(p,x.t,x.i,k+1,false)).join('')}</ol></section>`}
+  const n=phaseDoneN(p),pp=pct(n,p.t.length),comp=phaseComplete(p),ex=EXAMS[p.id],es=ex?examStatus(p.id):null,
+   started=p.t.some(t=>lessonStatus(p.id,t)!=='open')||es&&es!=='pending',
+   tag=comp?['COMPLETADA','rt-done']:started?['EN CURSO','rt-doing']:['DISPONIBLE',''],isCurP=(ns.type==='lesson'||ns.type==='exam')&&ns.p.id===p.id;
+  let exb='';
+  if(ex){const l=lastExam(p.id),rule=EXAM_RULES[p.id]&&EXAM_RULES[p.id].pass,isEx=ns.type==='exam'&&ns.p.id===p.id,hasH=S.exams.some(e=>e.ph===p.id);
+   exb=`<div class="rt-ex${isEx?' rt-cur':''}"><div class="rt-h"><div><div class="cap">EVALUACIÓN</div><h3 class="rt-et">Evaluación de la Fase ${p.id}</h3><p class="rt-d">Comprueba tus conocimientos sobre los ${NW[p.t.length]||p.t.length} temas de ${esc(p.n)}.</p></div><span class="tag rt-e-${es}">${{pending:'PENDIENTE',done:'REALIZADO',passed:'APROBADO'}[es]}</span></div>
+   <p class="rt-sub" style="margin:10px 0 12px">${ex.length} preguntas · Lecciones completadas: <span class="mono">${n} de ${p.t.length}</span>${rule!=null?` · Para aprobar: <span class="mono">${rule}%</span> o más`:''}<br>${l?`Último resultado: <span class="mono">${l.s}/${l.n}</span> (${pct(l.s,l.n)}%), ${fmtD(examIso(l))}`:'Aún sin resultados.'}</p>
+   <div class="row"><button class="btn${isEx?'':' g'}" onclick="go('exam');startExam(${p.id})">${es==='pending'?'Realizar examen':'Repetir examen'}</button>${hasH?`<button class="btn g" onclick="go('exam')">Ver historial</button>`:''}</div></div>`}
+  return `<section class="card rt-p${isCurP?' rt-curp':''}" aria-label="Fase ${p.id} — ${esc(p.n)}"><div class="rt-h"><div><div class="cap">FASE ${p.id}</div><h2>Fase ${p.id} — ${esc(p.n)}</h2>${info.d?`<p class="rt-d">${esc(info.d)}</p>`:''}</div><span class="tag ${tag[1]}">${tag[0]}</span></div>
+   <div class="rt-pg"><div class="row" style="justify-content:space-between"><span class="cap">PROGRESO DE LA FASE</span><span class="mono" style="color:var(--am)">${pp}%</span></div><div class="bar"><i style="width:${pp}%"></i></div><div class="rt-sub">${n} de ${p.t.length} lecciones completadas</div></div>
+   <ol class="rt-ls">${p.t.map((t,i)=>row(p,t,i,i+1,ns.type==='lesson'&&ns.p.id===p.id&&ns.i===i)).join('')}</ol>${exb}</section>`}).join('');
+ const lic=[['Conocimientos básicos','Ruta educativa'],['Fundamentos de vuelo','Ruta educativa'],['Navegación','Ruta educativa'],['Meteorología','Ruta educativa'],['Comunicaciones','Ruta educativa'],['Instrumentos','Ruta educativa'],['Piloto privado','Licencia: consultar requisitos oficiales'],['Habilitación de instrumentos','Licencia: consultar requisitos oficiales'],['Piloto comercial','Licencia: consultar requisitos oficiales']];
+ return `<div class="rt"><h1>Mi ruta de formación</h1><p class="sub">Tu recorrido de aprendizaje aeronáutico, organizado en fases para avanzar desde los fundamentos hasta conocimientos más avanzados.</p>
+ <div class="stats4">${stat.map(x=>`<div class="card"><div class="cap">${x[0]}</div><div class="big" style="margin-top:8px">${x[1]}</div><div class="stat-sub">${x[2]}</div></div>`).join('')}</div>
+ <div class="bar" style="margin:12px 0 0"><i style="width:${st.pct}%"></i></div>
+ <h2 style="margin-top:22px">Siguiente paso</h2><div class="card hero dh"><div class="cap">SIGUIENTE PASO</div><h3 class="dh-title" style="margin-top:8px">${esc(nt)}</h3>${nd?`<p class="dh-desc">${esc(nd)}</p>`:''}<button class="btn" onclick="${na}">${nb}</button></div>
+ <h2>Fases</h2>${blocks}
+ <div class="note">Una fase se completa al terminar todas sus lecciones y realizar su evaluación${Object.values(EXAM_RULES).some(r=>r&&r.pass!=null)?', además de alcanzar el resultado mínimo definido':''}. Completar las lecciones y rendir la evaluación son pasos distintos: hacer uno no marca el otro.</div>
+ <details class="rt-det"><summary>Ruta educativa general hacia la licencia (orientativa)</summary><div class="card" style="padding-left:24px;margin-top:10px">${lic.map(x=>`<div class="step"><h3>${x[0]}</h3><span class="tag">${x[1]}</span></div>`).join('')}</div><div class="note"><b>Ruta educativa general</b> orienta el estudio. <b>Requisitos oficiales</b> (horas, edad, certificado médico, exámenes) varían según el país y los define la autoridad aeronáutica; en Colombia, la Aerocivil. Consulta siempre su normativa vigente.</div></details></div>`}
 };
 function planeSVG(){return `<svg viewBox="0 0 300 120" style="width:100%;max-width:420px;margin-top:10px" fill="none" stroke="#3d8bd9" stroke-width="2"><path d="M20 60h250M120 60l-40-45M120 60l-40 45M255 60l15-22M255 60l15 22" /><circle cx="150" cy="60" r="5" fill="#ffb020" stroke="none"/><text x="95" y="14" fill="#8a9ab3" stroke="none" font-size="9" font-family="monospace">AILERON</text><text x="232" y="22" fill="#8a9ab3" stroke="none" font-size="9" font-family="monospace">ELEVATOR</text><text x="30" y="108" fill="#8a9ab3" stroke="none" font-size="9" font-family="monospace">Roll: eje longitudinal</text></svg>`}
 function qHTML(q,id,isExam){return `<div class="card" id="${id}"><b>${q.p}</b>`+q.o.map((o,i)=>`<button class="opt" onclick="ans(this,${i},'${id}',${!!isExam})">${o}</button>`).join('')+`<div class="fb" hidden></div></div>`}
@@ -371,7 +425,7 @@ function recent(){const ev=[];
 function refData(){const d=S.apt.SKBG||{},m=String(d.rwy||'').match(/RWY\s*(\d{2})\s*\/\s*(\d{2})/i),e=String(d.elev||'').match(/(\d[\d.,]*)\s*ft/i),a=allApt().find(x=>x.icao==='SKBG')||{};
  return{icao:a.icao||'SKBG',iata:a.iata||'',name:a.name||'',city:a.city||'',country:a.country||'',rwy:m?m[1]+' / '+m[2]:'—',elev:e?e[1]+' FT':'—'}}
 function dashHero(t,cur){
- if(!cur)return `<div class="card hero dh"><div class="cap">FORMACIÓN AERONÁUTICA</div><h2 class="dh-title" style="margin-top:12px">Plan de formación completado</h2><p class="dh-desc">Has marcado todas las lecciones como completadas. Repasa la Academia o practica con exámenes.</p><div class="bar"><i style="width:100%"></i></div><button class="btn" onclick="go('acad')">Ir a la Academia</button></div>`;
+ if(!cur){const ns=nextStep();return `<div class="card hero dh"><div class="cap">FORMACIÓN AERONÁUTICA</div><h2 class="dh-title" style="margin-top:12px">${ns.type==='exam'?'Lecciones disponibles completadas':'Contenido disponible completado'}</h2><p class="dh-desc">${ns.type==='exam'?`Te falta ${ns.retry?'repetir':'realizar'} el examen de la Fase ${ns.p.id}.`:'Has terminado el contenido disponible. Las próximas fases se añadirán más adelante.'}</p><div class="bar"><i style="width:${t}%"></i></div><button class="btn" onclick="go('route')">Continuar entrenamiento</button></div>`}
  const ph=cur.p,done=ph.t.filter(q=>S.done[key(ph.id,q)]).length,i=TOPIC_INFO[cur.t]||{d:''};
  return `<div class="card hero dh"><div class="row" style="justify-content:space-between"><div class="cap">FORMACIÓN AERONÁUTICA</div><span class="tag">FASE ${ph.id}</span></div>
   <div class="dh-main"><div><div class="dh-lbl">Lección actual</div><h2 class="dh-title">${esc(cur.t)}</h2>${i.d?`<p class="dh-desc">${esc(i.d)}</p>`:''}
@@ -379,7 +433,7 @@ function dashHero(t,cur){
   <div class="dh-pct"><div class="big">${t}%</div><div class="cap">PROGRESO GENERAL</div></div></div>
   <div class="bar"><i style="width:${t}%"></i></div><button class="btn" onclick="openTopic(${ph.id},${cur.i})">Continuar entrenamiento</button></div>`}
 function dashNext(x){
- if(!x)return `<div class="card nx"><div class="cap">PRÓXIMO ENTRENAMIENTO</div><p class="nx-desc" style="margin-bottom:0">No quedan lecciones pendientes en el plan.</p></div>`;
+ if(!x)return `<div class="card nx"><div class="cap">PRÓXIMO ENTRENAMIENTO</div><p class="nx-desc" style="margin-bottom:0">No quedan lecciones disponibles por estudiar.</p></div>`;
  // Próximo entrenamiento = la lección en la que vas: la primera del plan que aún no has completado.
  const i=TOPIC_INFO[x.t]||{tags:'',d:''},ok=!!LESSONS[x.t],k=key(x.p.id,x.t),started=(S.act||[]).some(a=>a.k===k&&a.ty==='start');
  return `<div class="card nx"><div class="row" style="justify-content:space-between"><div class="cap">PRÓXIMO ENTRENAMIENTO</div><span class="tag">FASE ${x.p.id}</span></div>
@@ -400,6 +454,7 @@ const examIso=e=>e.iso||dmy(e.d);
 const lastExam=ph=>S.exams.filter(e=>e.ph===ph).slice(-1)[0];
 function examLabel(e){if(!e.ph)return 'Examen general (versión anterior)';const f=PHASES.find(x=>x.id===e.ph);return 'Examen de la Fase '+e.ph+(f?' — '+f.n:'')}
 function delExams(){if(confirm('¿Borrar todo el historial de exámenes? Esta acción no se puede deshacer.')){S.exams=[];save();render()}}
+document.head.insertAdjacentHTML('beforeend','<style>.rt h2{margin:22px 0 12px}.rt-p{margin-bottom:16px;transition:border-color .2s}.rt-p h2{margin:2px 0 6px;font-size:19px}.rt-curp{border-color:#3a557f}.rt-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.rt-d{margin:0;color:var(--mu);max-width:70ch;font-size:14px}.rt-pg{margin:14px 0 4px}.rt-pg .bar{margin:6px 0}.rt-sub{color:var(--mu);font-size:13px}.rt-ls{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}.rt-l{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--pnl2);border:1px solid var(--ln);border-radius:6px;padding:11px 14px;color:var(--tx);font:inherit;cursor:pointer;transition:border-color .15s,background .15s}.rt-l:hover{border-color:var(--am)}.rt-l:focus-visible{outline:2px solid var(--bl);outline-offset:2px}.rt-l.rt-cur{border-color:var(--am);box-shadow:inset 3px 0 0 var(--am)}.rt-n{color:var(--mu);min-width:24px}.rt-t{flex:1;font-weight:600;min-width:0}.rt-s{display:inline-flex;align-items:center;gap:6px;font:600 11px JetBrains Mono,monospace;letter-spacing:.04em;color:var(--mu);white-space:nowrap}.rt-s .ic{width:16px;height:16px}.rt-doing{color:var(--am)}.rt-done{color:var(--gr)}.tag.rt-doing{border-color:var(--am)}.tag.rt-done{border-color:var(--gr)}.rt-ex{margin-top:14px;border:1px solid var(--ln);border-radius:6px;padding:14px 16px;background:#0b1424}.rt-ex.rt-cur{border-color:var(--am)}.rt-et{margin:2px 0 4px;font-size:16px}.tag.rt-e-done{color:var(--am);border-color:var(--am)}.tag.rt-e-passed{color:var(--gr);border-color:var(--gr)}.rt-soon{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.rt-soon h2{font-size:17px}.rt-det{margin-top:16px}.rt-det summary{cursor:pointer;color:var(--mu);padding:6px 0}.rt-det summary:hover{color:var(--tx)}@media(max-width:760px){.rt-l{flex-wrap:wrap}.rt-s{width:100%;padding-left:38px}.rt-h{flex-direction:column}}</style>');
 function toggle(k){S.done[k]=!S.done[k];S.act=S.act||[];if(S.done[k])S.act.push({k,ty:'done',d:today(),ts:Date.now()});else S.act=S.act.filter(a=>!(a.k===k&&a.ty==='done'));save();render()}
 function openL(p,t){lesson={p,t};const k=key(p,t);S.act=S.act||[];if(LESSONS[t]&&!S.act.some(a=>a.k===k&&a.ty==='start')){S.act.push({k,ty:'start',d:today(),ts:Date.now()});save()}render()}
 function go(v){view=v;lesson=null;if(v!=='exam')examState=null;render();scrollTo(0,0)}
