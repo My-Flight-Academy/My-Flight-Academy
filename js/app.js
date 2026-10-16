@@ -42,9 +42,6 @@ const LESSONS={}; // Las lecciones viven en js/lessons/ (una carpeta por fase, u
 // Exámenes por fase: EXAMS[idFase]=[preguntas]. Cada fase registra el suyo en js/lessons/faseN-.../examen.js
 const EXAMS={};
 const DICT=[['Takeoff','Despegue','Fase en que el avión acelera y se separa del suelo.','"Cleared for takeoff."'],['Landing','Aterrizaje','Fase final en que el avión toca la pista.','"Landing gear down."'],['Runway','Pista','Superficie preparada para despegue y aterrizaje.','"Runway 35 in use."'],['Taxiway','Calle de rodaje','Vía que conecta pistas y plataformas.','"Taxi via Alpha."'],['Heading','Rumbo','Dirección hacia la que apunta el morro, respecto al norte.','"Fly heading 270."'],['Altitude','Altitud','Altura sobre el nivel medio del mar.','"Maintain 5000 feet."'],['Climb','Ascenso','Ganar altitud.','"Climb and maintain FL080."'],['Descent','Descenso','Perder altitud.','"Descend to 3000."'],['Approach','Aproximación','Fase de acercamiento a la pista.','"Cleared ILS approach."'],['Clearance','Autorización','Permiso del ATC para realizar una acción.','"Clearance received."'],['Wind','Viento','Movimiento del aire.','"Wind 270 at 10 knots."'],['Crosswind','Viento cruzado','Viento que sopla de lado respecto a la pista.','"Crosswind from the right."']];
-const CHK={'Cessna 172':{'Before start':['Freno de estacionamiento','Master (batería)','Combustible','Controles libres','Puertas y cinturones'],'Before takeoff':['Flaps','Trim','Mezcla y hélice','Instrumentos','Frecuencia de torre']},
- 'A320neo':{'Cold & Dark':['Baterías','Alimentación externa','ADIRS','Luces de cabina'],'Before start':['Freno de estacionamiento','Puertas cerradas','Beacon ON','MCDU programado','Checklist']}};
-const SIMNOTE='Estas listas son simplificadas para práctica en simulador. Los procedimientos reales dependen del avión, del manual (AFM/FCOM) y de la autoridad aeronáutica.';
 
 // ---------- Estado + almacenamiento seguro ----------
 const def={done:{},exams:[],logs:[],chk:{},mins:0,apt:{},custom:[]};
@@ -170,7 +167,6 @@ lib(){return `<h1>Biblioteca</h1><p class="sub">Tu material de estudio, guardado
  <div class="row" style="margin-top:14px"><input id="l_q" placeholder="Buscar" oninput="libDraw()" style="max-width:300px"><select id="l_f" onchange="libDraw()" style="max-width:200px"><option value="">Todas</option>${LC.map(c=>`<option>${c}</option>`).join('')}</select></div>
  <div id="lib_l" class="grid" style="margin-top:14px"></div>
  <div class="note">Los archivos viven en este navegador y dispositivo: si borras los datos del sitio, se pierden. Máximo 15 MB por archivo. Respeta los derechos de autor de lo que guardes.</div>`},
-sim(){return `<h1>Simulador</h1><p class="sub">Checklists interactivas para Microsoft Flight Simulator.</p>`+Object.entries(CHK).map(([ac,ls])=>`<h2>${ac}</h2><div class="grid">`+Object.entries(ls).map(([n,it])=>`<div class="card"><h3>${n}</h3>`+it.map(x=>{const k=ac+n+x;return `<label class="chk" style="color:var(--tx);font-size:15px"><input type="checkbox" ${S.chk[k]?'checked':''} onchange="S.chk['${k}']=this.checked;save()"> ${x}</label>`}).join('')+`</div>`).join('')+`</div>`).join('')+`<div class="note">${SIMNOTE}</div>`},
 dict(){return `<h1>Diccionario aeronáutico</h1><p class="sub">English → Español</p><input id="q" placeholder="Buscar término" oninput="dictF()" style="max-width:340px"><div id="dl" class="grid" style="margin-top:14px">${dictH('')}</div>`},
 route(){
  const st=routeStats(),ns=nextStep(),NW=['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez'],

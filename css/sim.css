@@ -1,0 +1,42 @@
+/* Simulador — checklists interactivos. Usa las variables y componentes de styles.css (.card, .btn, .bar, .tag, .cap, .note) */
+.sm-top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;margin:0 0 18px}
+.sm-seg{display:inline-flex;border:1px solid var(--ln);border-radius:6px;overflow:hidden;background:var(--pnl)}
+.sm-seg button{background:none;border:0;color:var(--mu);padding:9px 14px;font:600 13.5px Manrope,system-ui,sans-serif;cursor:pointer;border-right:1px solid var(--ln)}
+.sm-seg button:last-child{border-right:0}
+.sm-seg button:hover{color:var(--tx)}
+.sm-seg button[aria-pressed="true"]{background:var(--pnl2);color:var(--am);box-shadow:inset 0 -2px 0 var(--am)}
+.sm-seg button:focus-visible,.sm-hd:focus-visible,.sm-cb:focus-visible,.sm-mini:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
+.sm-sum{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;margin-bottom:6px}
+.sm-sum .bar{flex:1 1 180px;max-width:320px;margin:0}
+.sm-ph{margin:26px 0 0}
+.sm-phh{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sm-phh h2{margin:0;font-size:16px}
+.sm-pm{display:flex;gap:12px;align-items:center;color:var(--mu);font-size:13px}
+.sm-pm .bar{width:90px;margin:0;height:6px}
+.sm-mini{display:inline-flex;gap:6px;align-items:center;background:none;border:1px solid var(--ln);color:var(--mu);border-radius:5px;padding:4px 9px;font:600 12px Manrope,system-ui,sans-serif;cursor:pointer}
+.sm-mini:hover:not(:disabled){color:var(--tx);border-color:#3a557f}.sm-mini:disabled{opacity:.4;cursor:not-allowed}
+.sm-mini .ic{width:14px;height:14px}
+.sm-st{border:1px solid var(--ln);border-radius:6px;background:var(--pnl);margin:5px 0;transition:border-color .2s}
+.sm-st.open{border-color:#3a557f;border-left:3px solid var(--am)}
+.sm-row{display:flex;align-items:center;gap:6px;padding-left:12px}
+.sm-cb{width:19px;height:19px;accent-color:var(--am);flex-shrink:0;margin:0;cursor:pointer}
+.sm-hd{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:0;color:var(--tx);font:inherit;text-align:left;padding:11px 12px 11px 6px;cursor:pointer}
+.sm-hd:hover{background:#ffffff06}
+.sm-n{flex:1;min-width:0;overflow-wrap:anywhere}
+.sm-st.on .sm-n{color:var(--mu)}
+.sm-ch{display:flex;color:var(--mu);transition:transform .18s}
+.sm-st.open .sm-ch{transform:rotate(180deg);color:var(--am)}
+.sm-body{padding:2px 16px 14px 38px;border-top:1px solid var(--ln);display:grid;gap:12px}
+.sm-f{padding-top:10px}.sm-f .cap{margin-bottom:3px}
+.sm-f p,.sm-f ul{margin:0}.sm-f ul{padding-left:18px}.sm-f li{margin:2px 0}
+.sm-w{border-left:3px solid var(--am);background:#0b1424;padding:8px 12px;border-radius:0 5px 5px 0;font-size:14px}
+.sm-pd{color:var(--mu);font-style:italic;margin:0}
+.sm-src{font-size:12.5px;color:var(--mu)}
+.sm-figs{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))}
+.sm-fig{margin:0}
+.sm-fig a{display:block;width:fit-content;max-width:100%}
+.sm-fig img{display:block;max-width:100%;max-height:340px;width:auto;height:auto;border:1px solid var(--ln);border-radius:5px;background:#fff}
+.sm-fig figcaption{font-size:12.5px;color:var(--mu);margin-top:5px}
+.sm-pend{border:1px dashed var(--ln);border-radius:5px;padding:10px 12px;color:var(--mu);font-size:13.5px;margin-top:8px}
+.sm-quick .sm-hd{padding:9px 12px 9px 6px}.sm-quick .sm-st{margin:3px 0}
+@media(max-width:760px){.sm-body{padding:2px 12px 14px 12px}.sm-top{gap:10px}.sm-seg button{padding:9px 11px}}
