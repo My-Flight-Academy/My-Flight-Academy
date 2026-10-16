@@ -1,0 +1,114 @@
+/* Diario de vuelo — usa las variables y componentes de styles.css (.card, .btn, .bar, .stats4, .note, .cap, .big) */
+.lg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:4px 16px;flex-wrap:wrap;margin-bottom:6px}
+.lg-head h1{letter-spacing:.04em}
+.lg-new{display:inline-flex;align-items:center;gap:8px}
+.btn .ic{width:16px;height:16px}.btn span{vertical-align:middle}
+.btn.g:disabled:hover{border-color:var(--ln)}
+.lg h2{margin:28px 0 12px}
+.lg-muted{color:var(--mu);margin:6px 0 0}
+.lg-opt{color:#6b7f9e;font-weight:400}
+.lg-note{margin:0 0 14px;padding:10px 14px;border-radius:5px;border:1px solid var(--ln);border-left:3px solid var(--gr);background:#0b1424}
+.lg-note.lg-err{border-left-color:var(--rd);color:#ffb4b6}
+.lg-sum .card{min-width:0}.lg-v{margin-top:8px;min-width:0}.lg-v .big{margin:0}
+.lg-v .dh-flt{display:block}
+
+/* Filtros */
+.lg-filters{display:grid;gap:12px;grid-template-columns:minmax(200px,1.6fr) repeat(2,minmax(140px,1fr)) repeat(2,minmax(160px,1fr)) auto;align-items:end;margin-bottom:12px}
+.lg-fc .btn{white-space:nowrap}
+.lg-filters input,.lg-filters select,.lg-fc .btn{height:42px}
+.lg-filters label{margin-bottom:4px}
+.lg-count{color:var(--mu);font-size:13.5px;margin:0 0 10px}.lg-count b{color:var(--tx)}
+.lg-warn{color:var(--am)}
+.lg-none{text-align:center;padding:28px 16px}.lg-none p{color:var(--mu);margin:4px 0 14px}
+
+/* Historial: una sola estructura que se apila como tarjeta en móvil */
+.lg-list{display:grid;gap:10px}
+.lg-item{display:flex;align-items:stretch;gap:8px;padding:0;overflow:hidden}
+.lg-main{flex:1;min-width:0;display:grid;grid-template-columns:112px minmax(150px,1.4fr) minmax(130px,1fr) 118px minmax(120px,1fr);gap:6px 16px;align-items:center;text-align:left;background:none;border:0;color:var(--tx);font:inherit;padding:14px 8px 14px 16px;cursor:pointer}
+.lg-main:hover{background:var(--pnl2)}
+.lg-main:focus-visible,.lg-ib:focus-visible{outline:2px solid var(--bl);outline-offset:-2px}
+.lg-date{color:var(--am);font-weight:600;letter-spacing:.04em;font-size:13px}
+.lg-ac{display:flex;flex-direction:column;min-width:0}.lg-ac b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg-ac small{color:var(--mu);font-size:12px}
+.lg-rt{font-size:16px;font-weight:600;white-space:nowrap}
+.lg-f{display:flex;flex-direction:column;min-width:0;font-size:14px}.lg-f small{color:var(--mu);font-size:11px;font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase}
+.lg-act{display:flex;align-items:center;gap:6px;padding:0 12px 0 0}
+.lg-ib{display:inline-flex;align-items:center;gap:6px;padding:8px 10px}
+.lg-lb{display:none}
+.lg-del:hover{border-color:var(--rd)!important;color:#ff8f93!important}
+.btn.lg-danger{background:var(--rd);color:#fff;display:inline-flex;align-items:center;gap:8px}
+
+/* Estado vacío */
+.lg-empty{text-align:center;padding:44px 20px;margin-top:8px}
+.lg-empty h2{margin:10px 0 6px}.lg-empty p{color:var(--mu);margin:0 auto 18px;max-width:46ch}
+.lg-emi{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border:1px solid var(--ln);border-radius:50%;color:var(--am);background:var(--pnl2)}
+.lg-emi .ic{width:26px;height:26px}
+
+/* Análisis */
+.lg-an3{display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.lg-bars{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:12px}
+.lg-bl{display:flex;justify-content:space-between;gap:10px;font-size:14px}.lg-bl span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg-bl .mono{color:var(--am);white-space:nowrap;font-size:13px}.lg-bars .bar{margin:4px 0 0}
+.lg-bk{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.lg-bk p{margin:2px 0 0;font-size:13.5px}
+.lg-bk .btn{display:inline-flex;align-items:center;gap:8px}
+
+/* Diálogo */
+.lg-dlg{background:var(--pnl);color:var(--tx);border:1px solid #3a557f;border-radius:8px;padding:0;width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 24px);box-shadow:0 20px 60px #000a;overflow:hidden}
+.lg-dlg[open]{display:flex;flex-direction:column}
+.lg-dlg::backdrop{background:#03070ecc}
+.lg-dh{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--ln);background:var(--pnl2)}
+.lg-dh h2{margin:0;font-size:18px}.lg-x{padding:6px 8px;display:inline-flex}
+.lg-form{display:flex;flex-direction:column;min-height:0;flex:1}
+.lg-body{padding:16px 20px;overflow-y:auto;min-height:0;flex:1}
+.lg-foot{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--ln);background:var(--pnl2)}
+.lg-foot .btn{display:inline-flex;align-items:center;gap:8px}
+.lg-body fieldset{border:1px solid var(--ln);border-radius:6px;margin:0 0 14px;padding:12px 14px 14px;min-width:0}
+.lg-body legend{padding:0 8px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--am)}
+.lg-g{display:grid;gap:12px 14px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.lg-fd{min-width:0}.lg-fd[hidden],.lg-errs[hidden]{display:none}
+.lg-fd label{margin-bottom:4px}
+.lg-hint{font-size:12px;color:#6b7f9e;margin-top:4px}
+.lg-err{font-size:12.5px;color:#ff8f93;margin-top:4px}.lg-err:empty{display:none}
+[aria-invalid=true]{border-color:var(--rd)!important}
+.lg-errs{border:1px solid var(--rd);border-left-width:3px;background:#2a1216;border-radius:5px;padding:10px 14px;margin-bottom:14px}
+.lg-errs ul{margin:6px 0 0;padding-left:18px}.lg-errs:focus{outline:2px solid var(--bl)}
+.lg-hm{display:flex;gap:10px}.lg-hm>div{display:flex;align-items:center;gap:6px;flex:1}.lg-hm span{color:var(--mu);font-size:13px}
+.lg-dur{grid-column:1/-1}
+textarea{resize:vertical;line-height:1.5}
+.lg-dlg input:focus-visible,.lg-dlg select:focus-visible,.lg-dlg textarea:focus-visible,.lg-filters input:focus-visible,.lg-filters select:focus-visible,textarea:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
+
+/* Detalle */
+.lg-dtop{border-left:3px solid var(--am);padding:2px 0 2px 14px;margin-bottom:6px}
+.lg-drt{font-size:28px;font-weight:600;line-height:1.2}
+.lg-det h3{margin:18px 0 8px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--am)}
+.lg-dl{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px}
+.lg-kv{min-width:0}.lg-kv dt{color:var(--mu);font-size:12px}.lg-kv dd{margin:0;overflow-wrap:anywhere}
+.lg-obs{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1424;border:1px solid var(--ln);border-radius:5px;padding:12px 14px}
+
+@media(max-width:1180px){
+ .lg-filters{grid-template-columns:repeat(3,minmax(0,1fr))}.lg-fc{grid-column:1/-1}
+ .lg-an3{grid-template-columns:1fr}
+ .lg-main{grid-template-columns:100px minmax(130px,1.3fr) minmax(120px,1fr) 100px;}
+ .lg-main .lg-f:last-child{grid-column:2/-1}
+}
+@media(max-width:760px){
+ .lg-new{width:100%;justify-content:center;margin-bottom:14px;min-height:44px}
+ .stats4.lg-sum{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .lg-sum .card{padding:12px}.lg-sum .big{font-size:24px}.lg-sum .dh-flt{font-size:18px}.lg-sum .stat-sub{font-size:12px}
+ .lg-fc .btn{width:100%}
+ .lg-filters{grid-template-columns:1fr}
+ .lg-item{flex-direction:column;gap:0}
+ .lg-main{grid-template-columns:1fr 1fr;padding:14px 16px 10px}
+ .lg-main .lg-date{grid-column:1/-1}
+ .lg-main .lg-ac,.lg-main .lg-rt{grid-column:1/-1}
+ .lg-main .lg-rt{font-size:20px}
+ .lg-main .lg-f:last-child{grid-column:auto}
+ .lg-act{border-top:1px solid var(--ln);padding:8px 12px;gap:8px}
+ .lg-ib{flex:1;justify-content:center;min-height:42px}.lg-lb{display:inline}
+ .lg-g,.lg-dl{grid-template-columns:1fr}
+ .lg-dlg{width:100vw;max-width:100vw;max-height:100dvh;height:100dvh;border-radius:0;border-width:0}
+ .lg-dh,.lg-body,.lg-foot{padding-left:16px;padding-right:16px}
+ .lg-foot{padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}.lg-foot .btn{flex:1;justify-content:center;min-height:44px}
+ .lg input,.lg select,.lg-dlg input,.lg-dlg select,.lg-dlg textarea{min-height:44px;font-size:16px}
+ .lg-drt{font-size:24px}
+}

@@ -51,6 +51,18 @@ const def={done:{},exams:[],logs:[],chk:{},mins:0,apt:{},custom:[]};
 let S=JSON.parse(JSON.stringify(def));
 try{const r=localStorage.getItem('fa_state');if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
 const save=()=>{try{localStorage.setItem('fa_state',JSON.stringify(S))}catch(e){}};
+// ---------- Bitácora: datos compartidos (Diario de vuelo, Dashboard y Actividad reciente) ----------
+(function(){if(!Array.isArray(S.logs))S.logs=[];let ch=false;
+ const ok=S.logs.filter(l=>l&&typeof l==='object'&&!Array.isArray(l));if(ok.length!==S.logs.length){S.logs=ok;ch=true}
+ S.logs.forEach((l,i)=>{if(!l.id){l.id='v'+(Date.now()+i).toString(36)+Math.random().toString(36).slice(2,6);ch=true}
+  const d=Math.max(0,Math.round(+l.dur)||0);if(l.dur!==d){l.dur=d;ch=true}
+  if(typeof l.d!=='string'){l.d=String(l.d||'');ch=true}
+  ['dep','arr'].forEach(k=>{const u=String(l[k]==null?'':l[k]).toUpperCase();if(l[k]!==u){l[k]=u;ch=true}})});
+ if(ch)save()})();
+const lgMin=l=>Math.max(0,Math.round(+l.dur)||0);
+const lgSorted=()=>S.logs.map((l,i)=>[l,i]).sort((a,b)=>a[0].d<b[0].d?1:a[0].d>b[0].d?-1:((b[0].ts||0)-(a[0].ts||0))||b[1]-a[1]).map(x=>x[0]);
+const lgSimMin=()=>S.logs.filter(l=>l.kind==='SIMULADOR').reduce((a,l)=>a+lgMin(l),0);
+const lgDate=iso=>{const m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?m[3]+' '+MES[+m[2]-1]+' '+m[1]:'—'};
 const $=s=>document.querySelector(s);
 const pct=(a,b)=>b?Math.round(100*a/b):0;
 const key=(p,t)=>p+'|'+t;
@@ -82,11 +94,11 @@ const allDone=()=>Object.keys(S.done).filter(k=>S.done[k]).length;
 let view='dash',lesson=null,examState=null;
 const V={
 dash(){seedApt();const t=total(),L=availList(),cur=L.find(x=>!x.done),nxt=cur,n=L.filter(x=>x.done).length,
-  ex=S.exams[S.exams.length-1],lg=S.logs[S.logs.length-1],sim=S.logs.filter(l=>l.kind==='SIMULADOR').reduce((a,l)=>a+(+l.dur||0),0);
+  ex=S.exams[S.exams.length-1],lg=lgSorted()[0],sim=lgSimMin();
   const st=[['prog','LECCIONES COMPLETADAS',`<div class="big">${n}</div>`,n?`De ${L.length} lecciones disponibles.`:'Tu formación está comenzando.'],
    ['exam','ÚLTIMO EXAMEN',`<div class="big">${ex?ex.s+'/'+ex.n:'—'}</div>`,ex?`${esc(examLabel(ex))}${examIso(ex)?' · '+fmtD(examIso(ex)):''}`:'Sin exámenes realizados.'],
-   ['log','ÚLTIMO VUELO',`<div class="big dh-flt">${lg?esc(lg.dep)+' → '+esc(lg.arr):'—'}</div>`,lg?`${lg.kind==='SIMULADOR'?'Simulador':'Vuelo real'} · ${esc(lg.ac)}`:'Aún no hay vuelos registrados.'],
-   ['log','HORAS EN SIMULADOR',`<div class="big">${(sim/60).toFixed(1)}<span class="dh-u"> h</span></div>`,'Tiempo registrado.']];
+   ['log','ÚLTIMO VUELO',`<div class="big dh-flt">${lg?esc(lg.dep)+' → '+esc(lg.arr):'—'}</div>`,lg?`${lgDate(lg.d)} · ${esc(lg.ac)}`:'Aún no hay vuelos registrados.'],
+   ['log','HORAS EN SIMULADOR',`<div class="big">${Math.floor(sim/60)}<span class="dh-u"> h </span>${String(sim%60).padStart(2,'0')}<span class="dh-u"> min</span></div>`,S.logs.some(l=>l.kind==='SIMULADOR')?'Suma de la duración de tus vuelos de simulador.':'Sin vuelos de simulador registrados.']];
   return `<div class="dash"><h1>${hello()}, ${esc(S.name||'piloto')}.</h1><p class="sub">Tu objetivo: convertirte en piloto. <button class="btn g" style="padding:3px 10px;font-size:12px;margin-left:6px" onclick="welcome(true)">Cambiar nombre</button></p>
   ${dashHero(t,cur)}
   <h2>Estado</h2><div class="stats4">${st.map(x=>`<button class="card stat" onclick="go('${x[0]}')"><div class="cap">${x[1]}</div>${x[2]}<div class="stat-sub">${x[3]}</div></button>`).join('')}</div>
@@ -158,14 +170,6 @@ lib(){return `<h1>Biblioteca</h1><p class="sub">Tu material de estudio, guardado
  <div class="row" style="margin-top:14px"><input id="l_q" placeholder="Buscar" oninput="libDraw()" style="max-width:300px"><select id="l_f" onchange="libDraw()" style="max-width:200px"><option value="">Todas</option>${LC.map(c=>`<option>${c}</option>`).join('')}</select></div>
  <div id="lib_l" class="grid" style="margin-top:14px"></div>
  <div class="note">Los archivos viven en este navegador y dispositivo: si borras los datos del sitio, se pierden. Máximo 15 MB por archivo. Respeta los derechos de autor de lo que guardes.</div>`},
-log(){return `<h1>Diario de vuelo</h1><p class="sub">Registra vuelos de simulador o reales. Las horas de simulador no cuentan como horas oficiales.</p>
- <div class="card"><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
- <div><label>Fecha</label><input id="f_d" type="date"></div><div><label>Tipo</label><select id="f_k"><option>SIMULADOR</option><option>VUELO REAL</option></select></div>
- <div><label>Aeronave</label><input id="f_a" placeholder="Cessna 172"></div><div><label>Salida (ICAO)</label><input id="f_o" class="mono" placeholder="SKBG" maxlength="4"></div>
- <div><label>Llegada (ICAO)</label><input id="f_r" class="mono" placeholder="SKSP" maxlength="4"></div><div><label>Duración (min)</label><input id="f_t" type="number" min="0"></div>
- <div><label>Observaciones</label><input id="f_n"></div></div><p><button class="btn" onclick="addLog()">${editId!==null?'Guardar cambios':'Registrar vuelo'}</button></p></div>
- <h2>Registros</h2><div class="card wrap">${S.logs.length?`<table><tr><th>FECHA</th><th>TIPO</th><th>AERONAVE</th><th>RUTA</th><th>MIN</th><th></th></tr>`+S.logs.map((l,i)=>`<tr><td class="mono">${l.d}</td><td><span class="tag ${l.kind==='SIMULADOR'?'sim':'real'}">${l.kind}</span></td><td>${l.ac}</td><td class="mono">${l.dep} > ${l.arr}</td><td class="mono">${l.dur}</td><td><button class="btn g" onclick="editLog(${i})">Editar</button> <button class="btn g" onclick="delLog(${i})">Eliminar</button></td></tr>`).join('')+`</table>`:'Aún no hay vuelos. Registra el primero arriba.'}</div>
- <div class="grid" style="margin-top:14px"><div class="card"><div class="cap">TOTAL DE VUELOS</div><div class="big">${S.logs.length}</div></div><div class="card"><div class="cap">AEROPUERTOS</div><div class="big">${new Set(S.logs.flatMap(l=>[l.dep,l.arr])).size}</div></div></div>`},
 sim(){return `<h1>Simulador</h1><p class="sub">Checklists interactivas para Microsoft Flight Simulator.</p>`+Object.entries(CHK).map(([ac,ls])=>`<h2>${ac}</h2><div class="grid">`+Object.entries(ls).map(([n,it])=>`<div class="card"><h3>${n}</h3>`+it.map(x=>{const k=ac+n+x;return `<label class="chk" style="color:var(--tx);font-size:15px"><input type="checkbox" ${S.chk[k]?'checked':''} onchange="S.chk['${k}']=this.checked;save()"> ${x}</label>`}).join('')+`</div>`).join('')+`</div>`).join('')+`<div class="note">${SIMNOTE}</div>`},
 dict(){return `<h1>Diccionario aeronáutico</h1><p class="sub">English → Español</p><input id="q" placeholder="Buscar término" oninput="dictF()" style="max-width:340px"><div id="dl" class="grid" style="margin-top:14px">${dictH('')}</div>`},
 route(){
@@ -414,7 +418,7 @@ const MES=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DI
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const fmtD=iso=>{const m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+' '+MES[+m[2]-1]:'—'};
 const dmy=d=>{const m=String(d).match(/(\d+)\D+(\d+)\D+(\d{4})/);return m?m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'):''};
-const durFmt=m=>{m=+m||0;return m>=60?Math.floor(m/60)+' h '+(m%60)+' min':m>0?m+' min':''};
+const durFmt=m=>{m=+m||0;return m>=60?Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')+' min':m>0?m+' min':''};
 function topicList(){let n=0;return PHASES.flatMap(p=>p.t.map((t,i)=>({p,i,t,n:++n,done:!!S.done[key(p.id,t)]})))}
 function openTopic(pid,i){const ph=PHASES.find(x=>x.id===pid);go('acad');openL(pid,ph.t[i])}
 function recent(){const ev=[];
