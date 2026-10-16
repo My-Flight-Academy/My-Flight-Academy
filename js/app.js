@@ -126,11 +126,101 @@ exam(){
  return `<h1>Pregunta ${e.i+1} de ${Q.length}</h1><p class="sub">${esc(examLabel({ph:e.ph}))}</p><div class="bar"><i style="width:${pct(e.i,Q.length)}%"></i></div>`+qHTML(Q[e.i],'E',true)},
  prog(){const mean=S.exams.length?Math.round(S.exams.reduce((a,e)=>a+pct(e.s,e.n),0)/S.exams.length):0;
  return `<h1>Mi progreso</h1><p class="sub">Tu avance real, sin adornos.</p><div class="grid"><div class="card"><div class="cap">PROGRESO GENERAL</div><div class="big">${total()}%</div></div><div class="card"><div class="cap">EXÁMENES REALIZADOS</div><div class="big">${S.exams.length}</div></div><div class="card"><div class="cap">PROMEDIO</div><div class="big">${mean}%</div></div></div><h2>Por fase</h2><div class="card">`+PHASES.map(p=>`<div class="row" style="justify-content:space-between"><span>Fase ${p.id} — ${p.n}</span><span class="mono">${phasePct(p)}%</span></div><div class="bar"><i style="width:${phasePct(p)}%"></i></div>`).join('')+`</div>`},
-navi(){const T=[['Heading','Rumbo','Dirección del morro respecto al norte.'],['Track','Derrota','Trayectoria real del avión sobre el terreno.'],['Course','Rumbo deseado','Línea que se pretende volar entre dos puntos.'],['Bearing','Marcación','Dirección de un punto respecto a otro.'],['Ground speed (GS)','Velocidad respecto al suelo','TAS modificada por el viento.'],['Wind correction angle (WCA)','Ángulo de corrección por viento','Diferencia entre el course y el heading necesarios para mantenerlo.']];
+navi(){const T=[['Heading','Rumbo','Dirección del morro respecto al norte magnético.'],['Track','Derrota','Trayectoria real del avión sobre el terreno, resultado del heading más el efecto del viento.'],['Course','Rumbo deseado','Línea que se pretende volar entre dos puntos; equivale a la derrota planificada.'],['Bearing','Marcación','Dirección angular de un punto o radioayuda respecto al avión o al norte.'],['Ground speed (GS)','Velocidad respecto al suelo','TAS vectorialmente sumada al viento: puede ser mayor o menor que la TAS.'],['Wind correction angle (WCA)','Ángulo de corrección por viento','Grados que el piloto aparta el morro del course para que la derrota real coincida con él.']];
  const f=(i,l,v,m)=>`<div><label>${l}</label><input id="w_${i}" type="number" value="${v}" min="${m}" oninput="calcW()"></div>`;
+ const EXP=`
+<h2>Cómo funciona la corrección por viento</h2>
+<div class="wex-wrap">
+
+ <div class="wex-block">
+  <h3 class="wex-h">El problema fundamental</h3>
+  <p>El avión se mueve en dos medios simultáneamente: la <strong>masa de aire</strong> (en la que el motor lo empuja) y el <strong>suelo</strong> (el destino que se quiere alcanzar). El viento desplaza esa masa de aire respecto al suelo, de modo que un avión que apunta exactamente al destino <em>no llegará a él</em> si sopla viento lateral. Para compensar, el piloto gira el morro hacia el lado de donde viene el viento: eso es el <strong>Wind Correction Angle (WCA)</strong>.</p>
+ </div>
+
+ <div class="wex-block">
+  <h3 class="wex-h">Los cinco vectores clave</h3>
+  <div class="wex-table-wrap"><table class="wex-tbl">
+   <thead><tr><th>Término</th><th>Qué representa</th><th>Unidades</th></tr></thead>
+   <tbody>
+    <tr><td class="mono" style="color:var(--am)">Course (C)</td><td>Dirección de la línea que une el punto de salida con el destino, medida desde el norte magnético en sentido horario.</td><td>Grados (°)</td></tr>
+    <tr><td class="mono" style="color:var(--am)">TAS</td><td>True Air Speed. Velocidad del avión respecto a la masa de aire, corregida por altitud y temperatura. Es la magnitud del vector de aire.</td><td>Nudos (kt)</td></tr>
+    <tr><td class="mono" style="color:var(--am)">Viento desde (WD)</td><td>Dirección <em>de la que procede</em> el viento, medida desde el norte. Un viento «del 270» viene del oeste. Convención OACI/METAR.</td><td>Grados (°)</td></tr>
+    <tr><td class="mono" style="color:var(--am)">Viento (WS)</td><td>Velocidad del viento respecto al suelo. Es la magnitud del vector de viento.</td><td>Nudos (kt)</td></tr>
+    <tr><td class="mono" style="color:var(--bl)">Heading (HD)</td><td>Dirección del morro que resulta de sumarle el WCA al course. Lo que el piloto pone en el DI o HSI.</td><td>Grados (°)</td></tr>
+   </tbody>
+  </table></div>
+ </div>
+
+ <div class="wex-block">
+  <h3 class="wex-h">La geometría vectorial</h3>
+  <p>En navegación estimada se trabaja con tres vectores que forman un triángulo cerrado:</p>
+  <div class="wex-vectors">
+   <div class="wex-vec" style="border-color:var(--am)"><span class="wex-vec-ic" style="background:var(--am)">A</span><div><strong>Vector de aire (TAS)</strong><br><span style="color:var(--mu)">Sale del origen en la dirección del heading. Su magnitud es la TAS. Representa lo que el motor aporta.</span></div></div>
+   <div class="wex-vec" style="border-color:var(--mu)"><span class="wex-vec-ic" style="background:var(--mu)">V</span><div><strong>Vector de viento</strong><br><span style="color:var(--mu)">Se suma al vector de aire. Su dirección es <em>hacia donde va</em> el viento (opuesta a «viento desde»). Su magnitud es la WS.</span></div></div>
+   <div class="wex-vec" style="border-color:var(--bl)"><span class="wex-vec-ic" style="background:var(--bl)">R</span><div><strong>Vector resultante (Track + GS)</strong><br><span style="color:var(--mu)">La suma de los anteriores. Su dirección es la derrota real (track) y su magnitud es la ground speed. Para navegar con éxito, esta resultante debe apuntar exactamente al course.</span></div></div>
+  </div>
+  <p style="margin-top:12px">La condición de éxito es: <span class="wex-formula">Track = Course</span>. El piloto elige el heading (gira el vector de aire) hasta que esa igualdad se cumpla.</p>
+ </div>
+
+ <div class="wex-block">
+  <h3 class="wex-h">La fórmula paso a paso</h3>
+  <p>Esta herramienta aplica la fórmula trigonométrica exacta (no la regla del 1-in-60 ni la aproximación de seno):</p>
+  <div class="wex-steps">
+   <div class="wex-step"><div class="wex-step-n">1</div><div><strong>Ángulo relativo del viento</strong><br>Se calcula el ángulo entre el course y la dirección del viento: <span class="wex-formula">α = WD − C</span>. Si α es positivo el viento viene de la derecha; si es negativo, de la izquierda.</div></div>
+   <div class="wex-step"><div class="wex-step-n">2</div><div><strong>Seno del WCA</strong><br><span class="wex-formula">sin(WCA) = (WS / TAS) × sin(α)</span><br>La razón WS/TAS es la «fracción de viento»: cuanto mayor, mayor la corrección necesaria. Si ese cociente supera 1, el viento es tan fuerte que ningún heading puede mantener el course.</div></div>
+   <div class="wex-step"><div class="wex-step-n">3</div><div><strong>Wind Correction Angle</strong><br><span class="wex-formula">WCA = arcsin(sin(WCA))</span><br>Positivo = corregir a la derecha (D); negativo = a la izquierda (I). Es lo que aparece en la calculadora.</div></div>
+   <div class="wex-step"><div class="wex-step-n">4</div><div><strong>Heading</strong><br><span class="wex-formula">HD = (C + WCA) mod 360°</span><br>Es el rumbo que el piloto pone en el DI. Si WCA es positivo, el heading es mayor que el course (morro a la derecha del destino).</div></div>
+   <div class="wex-step"><div class="wex-step-n">5</div><div><strong>Ground speed</strong><br><span class="wex-formula">GS = TAS × cos(WCA) − WS × cos(α)</span><br>El primer término es la componente de la TAS en la dirección del course; el segundo, la componente del viento en esa misma dirección (positiva = viento de frente, resta; negativa = de cola, suma).</div></div>
+   <div class="wex-step"><div class="wex-step-n">6</div><div><strong>ETE (Estimated Time Enroute)</strong><br><span class="wex-formula">ETE = Distancia / GS × 60</span><br>Solo cuando se introduce una distancia. Da los minutos de vuelo esperados bajo viento constante.</div></div>
+  </div>
+ </div>
+
+ <div class="wex-block">
+  <h3 class="wex-h">Componentes de viento: frente/cola y cruzado</h3>
+  <p>El vector de viento se descompone en dos componentes respecto a la trayectoria:</p>
+  <div class="wex-comp">
+   <div class="wex-comp-item"><div class="wex-comp-lbl" style="color:var(--am)">COMPONENTE EN EJE DE CURSO<br><span style="color:var(--mu)">HW / TW</span></div><span class="wex-formula">HW = WS × cos(WD − C)</span><div style="margin-top:6px;color:var(--mu);font-size:13px">Positiva → viento de frente (headwind): reduce la GS.<br>Negativa → viento de cola (tailwind): aumenta la GS.</div></div>
+   <div class="wex-comp-item"><div class="wex-comp-lbl" style="color:var(--bl)">COMPONENTE LATERAL<br><span style="color:var(--mu)">XW</span></div><span class="wex-formula">XW = WS × sin(WD − C)</span><div style="margin-top:6px;color:var(--mu);font-size:13px">Positiva → viento cruzado desde la derecha.<br>Negativa → viento cruzado desde la izquierda.<br>Es la causa del WCA y la limitante en aterrizaje.</div></div>
+  </div>
+ </div>
+
+ <div class="wex-block">
+  <h3 class="wex-h">Ejemplo resuelto</h3>
+  <div class="wex-example">
+   <div class="wex-ex-data">
+    <div class="cap" style="margin-bottom:8px">DATOS DEL VUELO</div>
+    <div class="wex-ex-row"><span>Course</span><span class="mono" style="color:var(--am)">090°</span></div>
+    <div class="wex-ex-row"><span>TAS</span><span class="mono" style="color:var(--am)">100 kt</span></div>
+    <div class="wex-ex-row"><span>Viento desde / velocidad</span><span class="mono" style="color:var(--am)">150° / 20 kt</span></div>
+   </div>
+   <div class="wex-ex-data">
+    <div class="cap" style="margin-bottom:8px">RESULTADO</div>
+    <div class="wex-ex-row"><span>α = 150 − 90</span><span class="mono" style="color:var(--mu)">= 60°</span></div>
+    <div class="wex-ex-row"><span>sin(WCA) = (20/100) × sin 60°</span><span class="mono" style="color:var(--mu)">= 0.173</span></div>
+    <div class="wex-ex-row"><span>WCA = arcsin(0.173)</span><span class="mono" style="color:var(--bl)">≈ 10° D</span></div>
+    <div class="wex-ex-row"><span>Heading = 90 + 10</span><span class="mono" style="color:var(--bl)">= 100°</span></div>
+    <div class="wex-ex-row"><span>GS = 100×cos(10°) − 20×cos(60°)</span><span class="mono" style="color:var(--gr)">≈ 88 kt</span></div>
+   </div>
+  </div>
+  <p style="color:var(--mu);font-size:13px;margin-top:10px">Interpretación: el piloto pone el morro 10° a la derecha del destino (heading 100°) para contrarrestar el viento que empuja desde el sur-sureste. La GS cae a 88 kt porque hay viento de frente parcial. Puedes reproducir este ejemplo exacto en la calculadora de arriba.</p>
+ </div>
+
+ <div class="wex-block">
+  <h3 class="wex-h">Limitaciones de esta herramienta</h3>
+  <ul class="wex-limits">
+   <li><strong>Viento constante:</strong> asume que la dirección y velocidad del viento no varían con la altitud ni con el tiempo. En la realidad, el viento cambia a lo largo de la ruta (planeamiento por tramos).</li>
+   <li><strong>Sin variación magnética:</strong> los ángulos son magnéticos solo si los datos de entrada también lo son. En vuelo real hay que aplicar la variación local (isogona) para convertir entre magnético y verdadero.</li>
+   <li><strong>Sin desviación del compás:</strong> la tabla de desviación de la aeronave altera el heading que se lee en el compás magnético. No está incluida aquí.</li>
+   <li><strong>Modelo plano:</strong> ignora la curvatura de la Tierra. Para vuelos de hasta ~300 NM el error es despreciable en navegación estimada.</li>
+   <li><strong>No sustituye el planeamiento oficial:</strong> usa siempre los datos de viento de la publicación aeronáutica vigente (pronóstico de vientos en altitud, SIGMET, AIRMET) y un computador de vuelo E6B certificado para el vuelo real.</li>
+  </ul>
+ </div>
+
+</div>`;
  return `<h1>Navegación</h1><p class="sub">Conceptos y herramientas de navegación estimada.</p><div class="grid">`+T.map(t=>`<div class="card"><div class="mono" style="color:var(--am)">${t[0]}</div><h3>${t[1]}</h3><div style="color:var(--mu)">${t[2]}</div></div>`).join('')+`</div>
  <h2>Calculadora de corrección por viento</h2><div class="card"><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">${f('c','Course (°)',90,0)}${f('t','TAS (kt)',100,1)}${f('d','Viento desde (°)',150,0)}${f('s','Viento (kt)',20,0)}${f('x','Distancia (NM)',60,0)}</div><div id="w_o" style="margin-top:14px"></div></div>
- <div class="note">Herramienta de estudio con la fórmula estándar de navegación estimada (viento constante, sin variación magnética ni desviación). No sustituye el planeamiento con datos oficiales.</div>`},
+ <div class="note">Herramienta de estudio con la fórmula trigonométrica exacta (viento constante, sin variación magnética ni desviación). No sustituye el planeamiento con datos oficiales.</div>
+ ${EXP}`;},
 met(){return `<h1>Meteorología</h1><p class="sub">Decodificador educativo de METAR.</p><div class="card"><label>Pega un METAR</label><textarea id="m_i" rows="2" class="mono" oninput="decM()">METAR SKBG 051500Z 03008KT 9999 FEW030 SCT100 28/18 Q1015 NOSIG</textarea>
  <div class="row" style="margin-top:10px"><button class="btn g" onclick="$('#m_i').value='METAR SKBG 051500Z 03008KT 9999 FEW030 SCT100 28/18 Q1015 NOSIG';decM()">Ejemplo 1</button><button class="btn g" onclick="$('#m_i').value='METAR XXXX 121830Z 27015G25KT 4000 -RA BR BKN008 OVC015 12/11 A2992';decM()">Ejemplo 2: ráfagas y lluvia</button></div></div>
  <h2>Interpretación</h2><div class="card wrap" id="m_o"></div>
@@ -226,19 +316,133 @@ function addLog(){const g=i=>$('#f_'+i).value.trim();if(!g('d')||!g('o')||!g('r'
  if(editId!==null){S.logs[editId]=r;editId=null}else S.logs.push(r);save();render()}
 function editLog(i){editId=i;render();const l=S.logs[i];$('#f_d').value=l.d;$('#f_k').value=l.kind;$('#f_a').value=l.ac;$('#f_o').value=l.dep;$('#f_r').value=l.arr;$('#f_t').value=l.dur;$('#f_n').value=l.n}
 function delLog(i){if(confirm('¿Eliminar este registro?')){S.logs.splice(i,1);save();render()}}
-function calcW(){const g=i=>parseFloat($('#w_'+i).value),c=g('c'),tas=g('t'),wd=g('d'),ws=g('s'),x=g('x'),o=$('#w_o');
- if([c,tas,wd,ws].some(isNaN)||tas<=0||ws<0){o.innerHTML='<div class="fb">Ingresa valores válidos.</div>';return}
+// ── Calculadora de viento: lógica y visualización animada ──────────────────
+let _wRaf=null,_wParts=[],_wState={c:90,hd:90,wd:150,ws:20,wca:0,gs:0,hw:0,xw:0};
+function _wInitParts(n){_wParts=Array.from({length:n},()=>({a:Math.random()*Math.PI*2,r:Math.random()*72+8,life:Math.random(),spd:Math.random()*.007+.003}))}
+function _wStopRaf(){if(_wRaf){cancelAnimationFrame(_wRaf);_wRaf=null}}
+function _wDraw(canvas,st,reduced){
+ const S=canvas.width/2,cx=S,cy=S,R=S*.85,ctx=canvas.getContext('2d');
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ const deg=d=>d*Math.PI/180,px=(a,r)=>[cx+r*Math.sin(deg(a)),cy-r*Math.cos(deg(a))];
+ // Anillos de la rosa
+ [[R,'#233450',1],[R*.66,'#1a2a42',.6],[R*.33,'#142036',.4]].forEach(([r,col,a])=>{
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.strokeStyle=col;ctx.globalAlpha=a;ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1});
+ // Marcas de grados cada 30°
+ for(let i=0;i<360;i+=30){
+  const big=i%90===0;
+  const [x1,y1]=px(i,R-(big?14:8));const [x2,y2]=px(i,R);
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+  ctx.strokeStyle=big?'#3a557f':'#233450';ctx.lineWidth=big?1.5:1;ctx.stroke()}
+ // Letras cardinales
+ ctx.font='bold 11px JetBrains Mono,monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+ [['N',0],['E',90],['S',180],['O',270]].forEach(([l,a])=>{
+  const[x,y]=px(a,R-20);ctx.fillStyle=a===0?'#ffb020':'#8a9ab3';ctx.fillText(l,x,y)});
+ // Partículas de viento (dirección DESDE, giro suave)
+ if(!reduced&&st.ws>0){
+  _wParts.forEach(p=>{
+   p.life+=p.spd*(st.ws/40+.3);if(p.life>1)p.life=0;
+   const pr=p.r+(R-p.r)*p.life,pa=deg(st.wd+180)+deg(15*(p.r%7-3));
+   const wx=cx+pr*Math.sin(pa+(p.a-Math.PI)*p.life*.4);
+   const wy=cy-pr*Math.cos(pa+(p.a-Math.PI)*p.life*.4);
+   const fade=Math.sin(p.life*Math.PI);
+   ctx.beginPath();ctx.arc(wx,wy,1.2,0,Math.PI*2);
+   ctx.fillStyle=`rgba(138,154,179,${fade*.55})`;ctx.fill()})}
+ // Flecha de viento (DESDE) con trazo punteado
+ {const[x1,y1]=px(st.wd,10);const[x2,y2]=px(st.wd,R*.78);
+  ctx.save();ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+  ctx.strokeStyle='#8a9ab3';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();
+  // punta de flecha hacia el centro
+  const[ax,ay]=px(st.wd,R*.18);const[bx,by]=px(st.wd,R*.06);
+  const na=deg(st.wd+90);
+  ctx.beginPath();ctx.moveTo(ax+Math.cos(na)*5,ay+Math.sin(na)*5);
+  ctx.lineTo(bx,by);ctx.lineTo(ax-Math.cos(na)*5,ay-Math.sin(na)*5);
+  ctx.strokeStyle='#8a9ab3';ctx.lineWidth=1.5;ctx.stroke()}
+ // Línea de COURSE (ámbar) con brillo
+ {const[x2,y2]=px(st.c,R*.9);
+  const grd=ctx.createLinearGradient(cx,cy,x2,y2);
+  grd.addColorStop(0,'rgba(255,176,32,.15)');grd.addColorStop(1,'#ffb020');
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(x2,y2);
+  ctx.strokeStyle=grd;ctx.lineWidth=2.5;ctx.stroke();
+  // punta
+  const na=deg(st.c+90);const[ax,ay]=px(st.c,R*.88);const[bx,by]=px(st.c,R*.94);
+  ctx.beginPath();ctx.moveTo(ax+Math.cos(na)*5,ay+Math.sin(na)*5);
+  ctx.lineTo(bx,by);ctx.lineTo(ax-Math.cos(na)*5,ay-Math.sin(na)*5);
+  ctx.strokeStyle='#ffb020';ctx.fillStyle='#ffb020';ctx.lineWidth=1.5;ctx.stroke();ctx.fill()}
+ // Línea de HEADING (azul) punteada con brillo
+ {const[x2,y2]=px(st.hd,R*.9);
+  ctx.save();ctx.setLineDash([5,4]);
+  const grd=ctx.createLinearGradient(cx,cy,x2,y2);
+  grd.addColorStop(0,'rgba(61,139,217,.15)');grd.addColorStop(1,'#3d8bd9');
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(x2,y2);
+  ctx.strokeStyle=grd;ctx.lineWidth=2;ctx.stroke();ctx.restore();
+  const na=deg(st.hd+90);const[ax,ay]=px(st.hd,R*.88);const[bx,by]=px(st.hd,R*.94);
+  ctx.beginPath();ctx.moveTo(ax+Math.cos(na)*5,ay+Math.sin(na)*5);
+  ctx.lineTo(bx,by);ctx.lineTo(ax-Math.cos(na)*5,ay-Math.sin(na)*5);
+  ctx.strokeStyle='#3d8bd9';ctx.fillStyle='#3d8bd9';ctx.lineWidth=1.5;ctx.stroke();ctx.fill()}
+ // Punto central
+ ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.fillStyle='#ffb020';ctx.fill()}
+function _wAnimate(canvas,reduced){
+ _wStopRaf();
+ if(reduced){_wDraw(canvas,_wState,true);return}
+ function frame(){_wDraw(canvas,_wState,false);_wRaf=requestAnimationFrame(frame)}
+ frame()}
+function calcW(){
+ const g=i=>parseFloat($('#w_'+i).value),c=g('c'),tas=g('t'),wd=g('d'),ws=g('s'),x=g('x'),o=$('#w_o');
+ if([c,tas,wd,ws].some(isNaN)||tas<=0||ws<0){_wStopRaf();o.innerHTML='<div class="wv-err"><div class="fb">Ingresa valores válidos.</div></div>';return}
  const r=Math.PI/180,sn=ws/tas*Math.sin((wd-c)*r);
- if(Math.abs(sn)>1){o.innerHTML='<div class="fb">El viento es demasiado fuerte para mantener ese course con esa TAS.</div>';return}
+ if(Math.abs(sn)>1){_wStopRaf();o.innerHTML='<div class="wv-err"><div class="fb">El viento es demasiado fuerte para mantener ese course con esa TAS.</div></div>';return}
  const wca=Math.asin(sn)/r,hd=(((c+wca)%360)+360)%360,gs=tas*Math.cos(wca*r)-ws*Math.cos((wd-c)*r),hw=ws*Math.cos((wd-c)*r),xw=ws*Math.sin((wd-c)*r);
- if(gs<=0){o.innerHTML='<div class="fb">La velocidad respecto al suelo resulta nula o negativa: no es posible avanzar en ese course.</div>';return}
- const ete=x>0?Math.round(x/gs*60):null,p=n=>String(Math.round(n)%360||360).padStart(3,'0'),cell=(l,v)=>`<div class="card"><div class="cap">${l}</div><div class="big" style="font-size:24px">${v}</div></div>`;
- o.innerHTML=`<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${cell('HEADING',p(hd)+'°')}${cell('WCA',Math.abs(wca).toFixed(1)+'° '+(wca>=0?'D':'I'))}${cell('GROUND SPEED',Math.round(gs)+' kt')}${ete!==null?cell('ETE',ete+' min'):''}</div>
- <p style="color:var(--mu)">${hw>=0?'Viento de frente':'Viento de cola'}: ${Math.abs(hw).toFixed(0)} kt. Viento cruzado: ${Math.abs(xw).toFixed(0)} kt ${xw>=0?'desde la derecha':'desde la izquierda'}. D = corregir a la derecha, I = a la izquierda.</p>
- <svg viewBox="0 0 200 200" style="width:100%;max-width:240px" fill="none" stroke-width="2"><circle cx="100" cy="100" r="90" stroke="#233450"/><text x="96" y="22" fill="#8a9ab3" font-size="10" font-family="monospace" stroke="none">N</text>
- <line x1="100" y1="100" x2="100" y2="30" stroke="#ffb020" transform="rotate(${c} 100 100)"/><line x1="100" y1="100" x2="100" y2="30" stroke="#3d8bd9" stroke-dasharray="4 3" transform="rotate(${hd} 100 100)"/>
- <g transform="rotate(${wd} 100 100)" stroke="#8a9ab3"><line x1="100" y1="6" x2="100" y2="36"/><path d="M95 28l5 9 5-9"/></g></svg>
- <div class="cap">AMBAR: COURSE · AZUL: HEADING · GRIS: VIENTO (DESDE)</div>`}
+ if(gs<=0){_wStopRaf();o.innerHTML='<div class="wv-err"><div class="fb">La velocidad respecto al suelo resulta nula o negativa: no es posible avanzar en ese course.</div></div>';return}
+ const ete=x>0?Math.round(x/gs*60):null,p=n=>String(Math.round(n)%360||360).padStart(3,'0');
+ const reduced=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+ // Actualizar estado para el render continuo
+ _wState={c,hd,wd,ws,wca,gs,hw,xw};
+ // ¿Ya existe el contenedor? Si no, crear
+ if(!$('#w_canvas')){
+  _wInitParts(28);
+  const xwPct=Math.min(Math.abs(xw)/50*100,100);
+  const hwLbl=hw>=0?'FRENTE':'COLA',xwDir=xw>=0?'DER':'IZQ';
+  o.innerHTML=`<div class="wv-wrap">
+  <div class="wv-compass-wrap"><canvas id="w_canvas" width="280" height="280"></canvas></div>
+  <div class="wv-panel">
+   <div class="wv-legend"><span class="wv-dot wv-dot-am"></span>COURSE<span class="wv-dot wv-dot-bl"></span>HEADING<span class="wv-dot wv-dot-gr"></span>VIENTO</div>
+   <div class="wv-cards">
+    <div class="wv-card"><div class="cap">HEADING</div><div class="wv-val" id="wv_hd">${p(hd)}°</div></div>
+    <div class="wv-card"><div class="cap">WCA</div><div class="wv-val" id="wv_wca">${Math.abs(wca).toFixed(1)}° <span id="wv_wdir">${wca>=0?'D':'I'}</span></div></div>
+    <div class="wv-card"><div class="cap">GS</div><div class="wv-val" id="wv_gs">${Math.round(gs)} <span class="wv-unit">kt</span></div></div>
+    ${ete!==null?`<div class="wv-card"><div class="cap">ETE</div><div class="wv-val" id="wv_ete">${ete} <span class="wv-unit">min</span></div></div>`:''}
+   </div>
+   <div class="wv-wind-row">
+    <span class="cap" id="wv_hwlbl">${hwLbl}</span>
+    <span class="wv-num" id="wv_hw">${Math.abs(hw).toFixed(0)} kt</span>
+    <span class="wv-sep">·</span>
+    <span class="cap">CRUZADO</span>
+    <span class="wv-num" id="wv_xw">${Math.abs(xw).toFixed(0)} kt <span id="wv_xdir">${xwDir}</span></span>
+   </div>
+   <div class="wv-xbar-wrap"><div class="cap" style="margin-bottom:4px">INTENSIDAD VIENTO CRUZADO</div>
+    <div class="wv-xbar"><div class="wv-xfill" id="wv_xfill" style="width:${xwPct}%"></div><div class="wv-xlim" title="Límite demo ~25 kt" style="left:50%"></div></div>
+    <div class="wv-xlab"><span>0 kt</span><span>25 kt</span><span>50 kt</span></div>
+   </div>
+  </div></div>`;
+  const canvas=$('#w_canvas');
+  _wAnimate(canvas,reduced);
+ } else {
+  // Solo actualizar valores sin reconstruir el DOM
+  const upd=(id,v)=>{const e=$(id);if(e&&e.textContent!==v){e.classList.remove('wv-flash');void e.offsetWidth;e.classList.add('wv-flash');e.textContent=v}};
+  const upd2=(id,v)=>{const e=$(id);if(e){e.classList.remove('wv-flash');void e.offsetWidth;e.classList.add('wv-flash');e.innerHTML=v}};
+  upd('#wv_hd',p(hd)+'°');
+  upd2('#wv_wca',Math.abs(wca).toFixed(1)+'° <span id="wv_wdir">'+(wca>=0?'D':'I')+'</span>');
+  upd('#wv_gs',Math.round(gs)+' ');const gsu=$('#wv_gs');if(gsu&&!gsu.querySelector('span')){gsu.insertAdjacentHTML('beforeend','<span class="wv-unit">kt</span>')}
+  if($('#wv_ete'))upd('#wv_ete',(ete||'—')+' ');
+  const hwE=$('#wv_hw');if(hwE){hwE.classList.remove('wv-flash');void hwE.offsetWidth;hwE.classList.add('wv-flash');hwE.textContent=Math.abs(hw).toFixed(0)+' kt'}
+  const hwlblE=$('#wv_hwlbl');if(hwlblE)hwlblE.textContent=hw>=0?'FRENTE':'COLA';
+  const xwE=$('#wv_xw');if(xwE){xwE.classList.remove('wv-flash');void xwE.offsetWidth;xwE.classList.add('wv-flash');xwE.innerHTML=Math.abs(xw).toFixed(0)+' kt <span id="wv_xdir">'+(xw>=0?'DER':'IZQ')+'</span>'}
+  const xwPct=Math.min(Math.abs(xw)/50*100,100);
+  const xf=$('#wv_xfill');if(xf)xf.style.width=xwPct+'%';
+  if(reduced)_wDraw($('#w_canvas'),_wState,true);
+ }
+}
 function decM(){const t=$('#m_i').value.trim().toUpperCase().split(/\s+/).filter(Boolean),R=[];let cl=[],ic=0;const A=(c,m)=>R.push([c,m]);
  const W={RA:'lluvia',DZ:'llovizna',SN:'nieve',GR:'granizo',BR:'neblina',FG:'niebla',HZ:'calima',FU:'humo',TS:'tormenta',SH:'chubascos',FZ:'congelante',SQ:'turbonada',MI:'baja',BC:'en bancos',DR:'a baja altura',BL:'elevada por viento'};
  t.forEach(k=>{let m;
@@ -457,7 +661,7 @@ function delExams(){if(confirm('¿Borrar todo el historial de exámenes? Esta ac
 document.head.insertAdjacentHTML('beforeend','<style>.rt h2{margin:22px 0 12px}.rt-p{margin-bottom:16px;transition:border-color .2s}.rt-p h2{margin:2px 0 6px;font-size:19px}.rt-curp{border-color:#3a557f}.rt-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.rt-d{margin:0;color:var(--mu);max-width:70ch;font-size:14px}.rt-pg{margin:14px 0 4px}.rt-pg .bar{margin:6px 0}.rt-sub{color:var(--mu);font-size:13px}.rt-ls{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}.rt-l{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--pnl2);border:1px solid var(--ln);border-radius:6px;padding:11px 14px;color:var(--tx);font:inherit;cursor:pointer;transition:border-color .15s,background .15s}.rt-l:hover{border-color:var(--am)}.rt-l:focus-visible{outline:2px solid var(--bl);outline-offset:2px}.rt-l.rt-cur{border-color:var(--am);box-shadow:inset 3px 0 0 var(--am)}.rt-n{color:var(--mu);min-width:24px}.rt-t{flex:1;font-weight:600;min-width:0}.rt-s{display:inline-flex;align-items:center;gap:6px;font:600 11px JetBrains Mono,monospace;letter-spacing:.04em;color:var(--mu);white-space:nowrap}.rt-s .ic{width:16px;height:16px}.rt-doing{color:var(--am)}.rt-done{color:var(--gr)}.tag.rt-doing{border-color:var(--am)}.tag.rt-done{border-color:var(--gr)}.rt-ex{margin-top:14px;border:1px solid var(--ln);border-radius:6px;padding:14px 16px;background:#0b1424}.rt-ex.rt-cur{border-color:var(--am)}.rt-et{margin:2px 0 4px;font-size:16px}.tag.rt-e-done{color:var(--am);border-color:var(--am)}.tag.rt-e-passed{color:var(--gr);border-color:var(--gr)}.rt-soon{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.rt-soon h2{font-size:17px}.rt-det{margin-top:16px}.rt-det summary{cursor:pointer;color:var(--mu);padding:6px 0}.rt-det summary:hover{color:var(--tx)}@media(max-width:760px){.rt-l{flex-wrap:wrap}.rt-s{width:100%;padding-left:38px}.rt-h{flex-direction:column}}</style>');
 function toggle(k){S.done[k]=!S.done[k];S.act=S.act||[];if(S.done[k])S.act.push({k,ty:'done',d:today(),ts:Date.now()});else S.act=S.act.filter(a=>!(a.k===k&&a.ty==='done'));save();render()}
 function openL(p,t){lesson={p,t};const k=key(p,t);S.act=S.act||[];if(LESSONS[t]&&!S.act.some(a=>a.k===k&&a.ty==='start')){S.act.push({k,ty:'start',d:today(),ts:Date.now()});save()}render()}
-function go(v){view=v;lesson=null;if(v!=='exam')examState=null;render();scrollTo(0,0)}
+function go(v){if(typeof _wStopRaf==='function')_wStopRaf();view=v;lesson=null;if(v!=='exam')examState=null;render();scrollTo(0,0)}
 function render(){
  if(view==='exam'&&examState&&examState.i>=examQ().length&&!examState.saved){examState.saved=1;S.exams.push({ph:examState.ph,d:new Date().toLocaleDateString('es-CO'),iso:today(),ts:Date.now(),s:examState.s,n:examQ().length,miss:[...new Set(examState.miss)]});save()}
 $('#nav').innerHTML=`<div class="brand">${ic('plane')}<span class="lb">Flight Academy</span></div>`+NAV_GROUPS.map(g=>`<div class="nG" role="group" aria-label="${g[0]}"><div class="ng">${g[0]}</div>`+g[1].map(n=>`<button class="${view===n[0]?'on':''}" aria-label="${n[1]}"${view===n[0]?' aria-current="page"':''} onclick="closeNav();aptSel=null;go('${n[0]}')">${ic(n[2])}<span class="lb">${n[1]}</span></button>`).join('')+`</div>`).join('')+`<button id="col" aria-label="${$('#nav').classList.contains('c')?'Expandir menú':'Contraer menú'}" onclick="toggleNav()">${ic('pclose')}${ic('popen')}<span class="lb">Contraer menú</span></button>`;
