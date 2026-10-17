@@ -157,3 +157,19 @@ th{color:var(--mu);font:600 12px 'JetBrains Mono'}
 .wex-limits{padding-left:18px;margin:8px 0 0;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.6}
 .wex-limits li::marker{color:var(--am)}
 @media(max-width:600px){.wex-step{flex-direction:row}.wex-tbl{font-size:13px}}
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+#ft{border-top:1px solid var(--ln);background:#0a1220}
+.ft-inner{max-width:1680px;margin-inline:auto;padding:24px clamp(16px,4vw,44px) calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
+.ft-top{display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap}
+.ft-brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:14px;color:var(--am);white-space:nowrap;flex-shrink:0}
+.ft-brand svg{width:18px;height:18px;stroke:var(--am);flex-shrink:0}
+.ft-desc{margin:0;font-size:13px;color:var(--mu);line-height:1.6;flex:1;min-width:200px}
+.ft-divider{height:1px;background:var(--ln)}
+.ft-bottom{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;font-size:12.5px;color:var(--mu)}
+.ft-right{margin-left:auto}
+.ft-dot{color:var(--ln);user-select:none}
+.ft-link{color:var(--am);text-decoration:none;font-weight:600;border-bottom:1px solid transparent;transition:border-color .18s,color .18s}
+.ft-link:hover{color:#ffc94d;border-bottom-color:var(--am)}
+.ft-link:focus-visible{outline:2px solid var(--bl);outline-offset:2px;border-radius:2px}
+@media(max-width:760px){.ft-right{margin-left:0}.ft-dot{display:none}.ft-bottom{flex-direction:column;align-items:flex-start;gap:4px}}
