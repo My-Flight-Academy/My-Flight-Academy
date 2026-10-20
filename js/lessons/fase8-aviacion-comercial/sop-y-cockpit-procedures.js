@@ -1,257 +1,112 @@
 // Fase 8 — Aviación comercial  ·  Lección: SOP y cockpit procedures
-// Guía personal de configuración del A320neo en Microsoft Flight Simulator.
-// IMÁGENES: guarda cada archivo en images/fase8-aviacion-comercial/sop-y-cockpit-procedures/
-// y escribe su nombre en la lista IMG de abajo (ej.: energia_externa:'energia_externa.png').
-// Mientras un nombre quede vacío (''), la página muestra "Imagen pendiente".
+// Conceptos y criterios del A320neo V2 de Microsoft Flight Simulator 2024. La ejecución paso a paso está en Simulador.
+// IMÁGENES: images/fase8-aviacion-comercial/sop-y-cockpit-procedures/
 (function(){
 const IMG={energia_externa:'conectar_energia_externa.png',oxigeno:'Conectar_oxigeno.png',inerciales:'Inerciales.png',abrir_puertas:'abrir_puertas.png',cargar:'como_cargar.png',boton_clr:'boton_CLR.png',flight_number:'fly_number.png',boton_block:'botom_block.png',apu_bleed:'apu_bleed.png',solicitud_ifr:'solicitud_IFR.png',altitud_ap:'altitud_autopilot.png',boton_sync:'boton_SYNC.png',boton_calculate:'boton_calculate.png',velocidades:'velocidades.png',ths:'THS.png',confirm_to:'confirm.png',aeropuerto_salida:'aeropuerto_salida.png',departure:'departure.png',return_btn:'return.png',llegada:'llegada.png',appr:'APPR.png',via_star:'NINO6C.png',trayecto:'trayecto.png',pantalla_trayecto:'pantalla_trayecto.png',bombas:'bombas.png',start:'start.png',meteorologia:'meteorologia.png',verificar:'verificar.png',frenos_auto:'frenos_automaticos.png',fly_director:'fly_director.png',ta_meteorologia:'mete.png',presion_estandar:'presion_estandar.png'};
 const P=(k,alt)=>fig(IMG[k]||'',alt);
 
 LESSONS['SOP y cockpit procedures']={lvl:'Avanzado',min:30,svg:false,body:`
-<div class="key"><b>Guía personal para Microsoft Flight Simulator.</b> Describe el A320neo con la tablet (EFB) del simulador. No es el SOP real de una aerolínea: para operar un avión real se usa el FCOM y el manual de la compañía.</div>
+<div class="key"><b>Airbus A320neo V2 de Microsoft Flight Simulator 2024.</b> Esta lección explica el porqué de cada fase; el paso a paso se practica en la sección Simulador. Referencias: manual y Quick Reference Card (QRC) del A320neo V2 publicados en flightsimulator.com/aircraft-manuals. No es el SOP de una aerolínea: para operar un avión real se usan el FCOM y el manual de la compañía.</div>
 
-<h3>1. Revisión preliminar de cabina (Cold &amp; Dark)</h3>
-<p>Antes de energizar la aeronave, verifica que los mandos estén en posición segura:</p>
+<h3>1. Cold &amp; Dark y energía</h3>
+<p>En <b>Cold &amp; Dark</b> el avión está sin energía y sin sistemas activos. Antes de energizarlo conviene confirmar que los mandos están en una posición conocida: spoilers retraídos y desarmados, flaps en 0, palancas de potencia en IDLE y limpiaparabrisas apagados.</p>
 <ul>
-<li><b>Spoilers / aerofrenos</b> — desarmados y retraídos (palanca arriba).</li>
-<li><b>Flaps</b> — en posición 0.</li>
-<li><b>Palancas de potencia (throttles)</b> — en IDLE.</li>
-<li><b>Palanca del tren de aterrizaje</b> — abajo (DOWN).</li>
-<li><b>Limpiaparabrisas (wipers)</b> — en OFF.</li>
-</ul>
-
-<h3>2. Energización y Overhead Panel</h3>
-<ul>
-<li>Enciende las dos baterías (BAT 1 y BAT 2).</li>
-<li>Conecta la energía externa (EXT PWR) si la GPU aparece disponible en verde en la tablet.</li>
+<li><b>Baterías (BAT 1 y BAT 2)</b> — dan la energía inicial. Con baterías cargadas el APU puede arrancar sin energía externa.</li>
+<li><b>Energía externa (EXT PWR)</b> — la GPU aporta electricidad, no aire para arrancar motores. Solo se conecta cuando aparece disponible (AVAIL).</li>
+<li><b>APU</b> — se enciende con APU MASTER SW y APU START; el ECAM confirma cuándo está disponible (AVAIL). Suministra electricidad y aire.</li>
+<li><b>ADIRS</b> — los tres selectores van a NAV para iniciar la alineación de las referencias inerciales; el avance se ve en el ECAM. Mantén el avión inmóvil mientras alinea.</li>
+<li><b>Oxígeno de la tripulación (CREW SUPPLY)</b> y las señales del panel superior forman parte de la preparación de cabina.</li>
 </ul>
 ${P('energia_externa','Energía externa (EXT PWR)')}
-<ul>
-<li>Enciende las luces NAV/LOGO y las luces STROBE.</li>
-<li>Arma las luces de emergencia (EMER EXIT LT) en ARM y deja NO SMOKING en AUTO.</li>
-<li>Enciende el oxígeno de la tripulación (CREW SUPPLY).</li>
-</ul>
-${P('oxigeno','Conectar el oxígeno de la tripulación')}
-<p><b>Encendido del APU</b></p>
-<ul>
-<li>Presiona APU MASTER SW, espera 3 segundos y luego presiona APU START.</li>
-<li>Revisa en el ECAM el arranque hasta que aparezca AVAIL.</li>
-</ul>
-<p><b>Alineamiento de inerciales (ADIRS)</b></p>
-<ul>
-<li>Gira a la posición NAV los selectores 1, 2 y 3. Espera a que la luz de cada uno se apague antes de pasar al siguiente.</li>
-<li>Orden en el panel: el de la izquierda es el 1, el del medio es el 3 y el de la derecha es el 2.</li>
-</ul>
-${P('inerciales','Selectores ADIRS 1, 3 y 2 en NAV')}
+${P('oxigeno','Oxígeno de la tripulación')}
+${P('inerciales','Selectores ADIRS en NAV')}
 
-<h3>3. Carga, MCDU y datos de despegue</h3>
-<p><b>EFB (tablet) — Ground</b></p>
+<h3>2. Preparación de cabina: EFB y MCDU</h3>
+<p>La tablet (EFB) controla los servicios en tierra, la carga y los cálculos de despegue. El MCDU recibe esos datos y debe coincidir con ellos.</p>
+${P('abrir_puertas','Control de puertas en la tablet (Ground)')}
+${P('cargar','Carga de combustible, pasajeros y equipaje')}
 <ul>
-<li>Abre las puertas desde la pestaña de servicios en tierra (Ground), conecta la pasarela y carga el combustible, los pasajeros y la carga útil deseados.</li>
+<li><b>INIT A</b> — datos del vuelo: aeropuertos, número de vuelo y alineación.</li>
+<li><b>INIT B</b> — pesos (ZFW/ZFWCG) y combustible (BLOCK). Un peso mal introducido altera todos los cálculos de rendimiento posteriores.</li>
+<li><b>Datos de despegue</b> — la tablet calcula V1, VR, V2, temperatura FLEX, flaps y THS para las condiciones del vuelo. Los valores de las capturas son ejemplos: cada vuelo tiene los suyos. Si el cálculo da error, revisa peso, pista y condiciones.</li>
+<li><b>PERF</b> — se introducen los datos calculados y se confirma con CONFIRM TO DATA.</li>
 </ul>
-${P('abrir_puertas','Abrir puertas desde Ground')}
-${P('cargar','Cargar combustible, pasajeros y carga')}
-<p><b>MCDU — página INIT A</b></p>
-<ul>
-<li>Primero limpia los mensajes del arranque con el botón CLR. Cuando la pantalla quede en blanco, pulsa INIT.</li>
-</ul>
-${P('boton_clr','Botón CLR del MCDU')}
-<ul>
-<li>Escribe el número de vuelo (cualquier número de tres dígitos) y insértalo con el botón al lado de FLT NBR.</li>
-</ul>
-${P('flight_number','Número de vuelo en INIT A')}
-<p><b>MCDU — página INIT B (pesos)</b></p>
-<ul>
-<li>Pulsa el botón al lado de ZFW/ZFWCG: cambian los números iniciales por los de la carga. Después pulsa el botón al lado de BLOCK.</li>
-</ul>
-${P('boton_block','Botones ZFW/ZFWCG y BLOCK')}
-<p><b>Antes de pasar al despegue</b></p>
-<ul>
-<li>Conecta el APU BLEED.</li>
-</ul>
-${P('apu_bleed','Botón APU BLEED')}
-<ul>
-<li>Conecta SEAT BELTS (cinturones de pasajeros).</li>
-<li>Desconecta la potencia de tierra (EXT PWR) y desactiva el toggle GPU en la pestaña Ground de la tablet.</li>
-</ul>
-
-<h3>4. Performance / Takeoff (EFB y MCDU)</h3>
-<ul>
-<li>En la tablet ve a la pestaña Takeoff. Antes debes pedir al ATC la autorización IFR.</li>
-</ul>
+${P('boton_block','Botones ZFW/ZFWCG y BLOCK en INIT B')}
 ${P('solicitud_ifr','Solicitud de autorización IFR')}
-<ul>
-<li>Inserta la altitud inicial en el piloto automático (en este ejemplo, 10000 ft).</li>
-</ul>
-${P('altitud_ap','Altitud inicial en el piloto automático')}
-<ul>
-<li>En Takeoff pulsa SYNC para que se llenen los datos del clima y de la pista.</li>
-</ul>
-${P('boton_sync','Botón SYNC')}
-<ul>
-<li>Pulsa CALCULATE. Si sale un error, lo más probable es que el avión pese demasiado para una pista corta: hay que reducir peso.</li>
-<li>Cuando genere los datos restantes, pulsa SEND TO FMGS.</li>
-</ul>
-${P('boton_calculate','Botón CALCULATE')}
-<p><b>MCDU — página PERF</b></p>
-<ul>
-<li>Limpia los mensajes y pulsa PERF.</li>
-<li><b>V1, VR y V2</b> — escribe los valores que da la tablet.</li>
-</ul>
-${P('velocidades','Velocidades V1, VR y V2')}
-<ul>
-<li><b>FLEX to temp</b> (ej. 38 °C) — escribe la temperatura FLEX que indica la tablet.</li>
-<li><b>Flaps / THS trim</b> (ej. 1 / 0.7 DN) — los flaps serán 1 y el THS lo da la tablet en la misma sección del FLEX.</li>
-</ul>
-${P('ths','Flaps y THS trim en PERF')}
-<ul>
-<li>Pulsa CONFIRM TO DATA. Debe quedar como en la imagen.</li>
-</ul>
+${P('boton_calculate','Datos de despegue calculados y enviados al FMGS')}
+${P('velocidades','Página PERF con V1, VR y V2 (valores de ejemplo)')}
+${P('ths','Datos de rendimiento con FLEX y THS (valores de ejemplo)')}
 ${P('confirm_to','Página PERF confirmada')}
 
-<h3>5. Plan de vuelo (F-PLN)</h3>
-<p><b>Salida</b></p>
-<ul>
-<li>Revisa la SID asignada por el ATC y la ruta en el MCDU. Pulsa F-PLN.</li>
-<li>Pulsa el primer botón, donde sale la pista de salida, y luego DEPARTURE. Debe aparecer RWY con la pista y SID con sus datos: compáralos con lo que dio el ATC.</li>
-</ul>
-${P('aeropuerto_salida','Aeropuerto de salida en F-PLN')}
+<h3>3. Plan de vuelo (F-PLN)</h3>
+<p>La ruta se programa con salida (pista y SID), llegada (STAR y aproximación) y los puntos intermedios. Compara siempre lo programado con la autorización ATC y con las publicaciones aeronáuticas vigentes del aeropuerto.</p>
+${P('aeropuerto_salida','Plan de vuelo con la pista de salida')}
 ${P('departure','Página DEPARTURE')}
-${P('return_btn','Botón RETURN')}
-<p><b>Llegada</b></p>
+${P('llegada','Aeropuerto de llegada en el plan de vuelo')}
+${P('appr','Selección de la aproximación (APPR)')}
+${P('via_star','Selección de VIA y STAR')}
 <ul>
-<li>Regresa hasta la pantalla con la información de la pista de salida y entra a la última opción (aeropuerto de llegada). Luego pulsa ARRIVAL y compara con el plan de vuelo.</li>
-<li>En el MCDU deben estar los tres datos <b>APPR – VIA – STAR</b>. El STAR solo se usa si tienes procedimiento de llegada; si no, déjalo quieto.</li>
-<li>Para buscar el VIA, pulsa el primer botón (en este ejemplo ILS30) y usa la flecha hacia arriba hasta encontrar el que aparece en tu plan de vuelo (en este ejemplo, NINO6C).</li>
-<li>Pulsa &lt;VIAS, elige el que aparece en tu plan de vuelo y pulsa INSERT.</li>
+<li>Revisa waypoint a waypoint el trayecto y sus restricciones de altitud y velocidad.</li>
+<li>El STAR solo se selecciona si el aeropuerto de llegada tiene procedimiento de llegada para tu ruta.</li>
 </ul>
-${P('llegada','Aeropuerto de llegada')}
-${P('appr','Selección de APPR')}
-${P('via_star','VIA/STAR en el plan de vuelo')}
-<p><b>Revisar el trayecto</b></p>
-<ul>
-<li>Configura la pantalla como en la imagen. Con la flecha hacia arriba del MCDU, estando en el plan de vuelo, ve subiendo para ver cada waypoint hasta llegar al aeropuerto de llegada.</li>
-<li>Al terminar la revisión, deja los controles como estaban al principio.</li>
-</ul>
-${P('trayecto','Configuración para revisar el trayecto')}
-${P('pantalla_trayecto','Cómo debe verse el trayecto')}
-<div class="key"><b>Error con waypoint:</b> la solución se agregará en una versión futura de la página.</div>
+${P('trayecto','Controles de la pantalla de navegación para revisar el trayecto')}
+${P('pantalla_trayecto','Trayecto visto en la pantalla de navegación')}
 
-<h3>6. Arranque de motores y pushback</h3>
+<h3>4. Before Start y arranque de motores</h3>
+<p>El QRC oficial agrupa estas comprobaciones en la lista <b>Before Start</b>: cabina preparada, ACARS INIT, señales (ON/AUTO), ADIRS en NAV, cantidad de combustible, datos de despegue, referencia barométrica, puertas y ventanas cerradas, beacon ON, palancas de potencia en IDLE, freno de estacionamiento y transpondedor según se requiera.</p>
 <ul>
-<li>Conecta el APU BLEED en el panel superior y enciende la luz BEACON.</li>
-<li>Enciende todas las bombas de combustible (fuel pumps).</li>
+<li><b>APU BLEED</b> — aporta el aire que necesitan los motores para arrancar.</li>
+<li><b>Bombas de combustible</b> — deben estar encendidas antes del arranque.</li>
+<li><b>Selector de modo de motor</b> — se pasa a IGN/START y cada motor se arranca con su conmutador ENG MASTER, observando los parámetros en el ECAM hasta que estabilice.</li>
 </ul>
-${P('bombas','Bombas de combustible')}
+${P('apu_bleed','APU BLEED')}
+${P('bombas','Panel de combustible')}
+${P('start','Selector de modo de motor en IGN/START')}
+${P('verificar','Transpondedor: comprueba que el código coincide con el asignado por ATC')}
+
+<h3>5. After Start y Before Takeoff</h3>
+<p>Tras el arranque, el QRC pide revisar antihielo según se requiera, el estado en el ECAM, el trim de cabeceo, el trim de timón a cero y confirmar que no hay equipo de tierra cerca.</p>
+<p>Antes del despegue, la lista Before Takeoff incluye: mandos de vuelo e instrumentos comprobados, briefing, flaps confirmados, V1/VR/V2 y FLEX anunciados, transpondedor y TCAS, memo del ECAM sin elementos azules para el despegue, <b>Auto Brake en MAX</b>, configuración de despegue en NORM, pista confirmada y tripulación de cabina avisada.</p>
+${P('frenos_auto','Panel AUTO BRK')}
+${P('fly_director','Botón del fly director')}
+${P('ta_meteorologia','Transpondedor y TCAS')}
+${P('meteorologia','Controles del radar meteorológico')}
+
+<h3>6. Despegue y ascenso</h3>
 <ul>
-<li>Cambia el selector de motor a IGN/START.</li>
+<li><b>V1</b> — velocidad de decisión: hasta V1 se puede rechazar el despegue; a partir de V1 se continúa. No es una orden para subir el tren ni para conectar el piloto automático.</li>
+<li><b>VR</b> — velocidad de rotación. <b>V2</b> — velocidad de seguridad en el despegue.</li>
+<li><b>Tren</b> — se retrae al confirmar el ascenso positivo. La lista After Takeoff/Climb del QRC exige tren arriba, flaps retraídos, packs ON y referencia barométrica ajustada.</li>
+<li><b>Flaps</b> — se retraen por pasos al alcanzar las velocidades de referencia que muestra el PFD; la secuencia depende de la configuración de despegue usada.</li>
+<li><b>Piloto automático</b> — se conecta cuando se cumplen las condiciones del avión y del modo de vuelo.</li>
+<li><b>Altitud en el FCU</b> — seleccionar una altitud no basta: el avión la captura según el modo activo.</li>
+<li><b>Referencia barométrica</b> — se cambia a STD y a QNH en la altitud/nivel de transición publicado para el aeropuerto o indicado por el ATC; no existe un valor universal.</li>
 </ul>
-${P('start','Selector de motor en IGN/START')}
+${P('altitud_ap','Panel FCU donde se selecciona la altitud')}
+${P('presion_estandar','Selector de presión barométrica en STD')}
+
+<h3>7. Descenso, aproximación y aterrizaje</h3>
+<p>La <b>lista de aproximación</b> del QRC confirma briefing, ECAM, cinturones ON, referencia barométrica y MDA/DH ajustados. La <b>lista de aterrizaje</b> confirma tripulación avisada, auto thrust en SPEED u OFF, memo LDG sin elementos azules, <b>tren abajo</b>, señales, spoilers armados (ARM) y flaps ajustados.</p>
 <ul>
-<li>Pide autorización de rodaje (pushback y arranque).</li>
-<li>Cierra todas las puertas con CLOSE ALL en Ground, en la tablet.</li>
-<li>Quita el freno de estacionamiento y solicita el pushback.</li>
-</ul>
-<p><b>Arranque</b></p>
-<ul>
-<li>Mueve el conmutador del motor 2 a ON mientras se realiza el pushback.</li>
-<li>Pon el freno de estacionamiento.</li>
-<li>Mueve el conmutador del motor 1 a ON y espera a que estabilice.</li>
-<li>Mientras arranca el motor 1, ajusta la vista meteorológica.</li>
-</ul>
-${P('meteorologia','Vista meteorológica')}
-${P('verificar','Verificar el código del ATC')}
-<ul>
-<li>Verifica que el código sea el mismo que envió el ATC y pasa al lado izquierdo las dos ruedas a ON (la A y la C).</li>
-</ul>
-<p><b>Después del arranque</b></p>
-<ul>
-<li>Arma los spoilers (palanca hacia arriba) y pon AUTO BRAKE en MAX.</li>
-</ul>
-${P('frenos_auto','Autobrake en MAX')}
-<ul>
-<li>Enciende RWY TURN OFF y pon NOSE en TAXI.</li>
-<li>Realiza la prueba de mandos de vuelo en la página FLT CTL del ECAM.</li>
-<li>Ajusta los flaps en posición 1.</li>
-<li>Apaga el APU BLEED y el APU MASTER SW.</li>
-<li>Regresa el selector de encendido a NORM.</li>
+<li>El tren se extiende como parte de la preparación de la aproximación, no solo al recibir la confirmación de aterrizaje.</li>
+<li>Los <b>speed brakes</b> se usan según la trayectoria, la velocidad y sus limitaciones; no hay una posición fija que sirva para cualquier exceso de velocidad.</li>
+<li>El <b>autobrake</b> se elige según la pista, las condiciones y el procedimiento aplicable.</li>
+<li>El momento de pulsar <b>APPR</b> y de desconectar el piloto automático depende del tipo de aproximación, de los mínimos y de las capacidades del avión.</li>
+<li>Una <b>aproximación estabilizada</b> mantiene configuración, velocidad y trayectoria estables antes de los criterios que fije el procedimiento aplicable.</li>
 </ul>
 
-<h3>7. Rodaje y preparación para el despegue</h3>
+<h3>8. Después de aterrizar y estacionamiento</h3>
 <ul>
-<li>Solicita autorización de despegue.</li>
-<li>Conecta el fly director.</li>
+<li><b>After Landing</b> — flaps retraídos, spoilers desarmados, APU en marcha, radar y PWS apagados y luces exteriores según se requiera.</li>
+<li><b>Parking</b> — APU BLEED ON, motores OFF, cinturones OFF, bombas de combustible OFF, freno y calzos según se requiera.</li>
+<li><b>Securing</b> — ADIRS, oxígeno, APU BLEED y luces de emergencia en OFF, y por último APU y baterías.</li>
 </ul>
-${P('fly_director','Fly director')}
-<ul>
-<li>Activa el botón CSTR que está arriba del fly director y deja el control como en la imagen.</li>
-</ul>
-${P('ta_meteorologia','Configuración del radar y TA')}
-<ul>
-<li>Ajusta el THS al trim: el THS está en la página de Takeoff y el trim es la rueda que está al lado del acelerador.</li>
-<li>Luces LAND en ON y NOSE en TO.</li>
-<li>Ve al inicio de la pista.</li>
-</ul>
-
-<h3>8. Despegue y ascenso</h3>
-<ul>
-<li>Despega.</li>
-<li>Al pasar V1 se activa el piloto automático y se sube el tren de aterrizaje.</li>
-<li>Cuando en el velocímetro se pase la <b>S</b>, se suben los flaps.</li>
-<li>Cuando debajo del altímetro empiece a parpadear un dato, cambia la presión barométrica a estándar (igual que el copiloto).</li>
-</ul>
-${P('presion_estandar','Presión barométrica estándar (STD)')}
-<ul>
-<li>Cuando el ATC indique mantenerse a un FL, pon esa altitud en el piloto automático.</li>
-<li>Al pasar 10000 ft apaga las luces RWY TURN OFF, LAND y NOSE.</li>
-<li>En la segunda rueda debajo de los botones de la fila CSTR, ponla en 40. Más arriba apaga las luces de cinturones.</li>
-<li>Súbela a 160 y, en crucero, al máximo en la velocidad de crucero.</li>
-</ul>
-
-<h3>9. Descenso, aproximación y aterrizaje</h3>
-<p><b>Preparar la llegada en el MCDU</b></p>
-<ul>
-<li>Limpia los mensajes.</li>
-<li>Verifica la aproximación: en el plan de vuelo entra a la última opción (el aeropuerto) y comprueba que APPR, VIA y STAR coincidan con lo que pasó el ATC.</li>
-<li>Si el STAR o el VIA están mal, entra a la opción donde sale la pista de aterrizaje y selecciona el STAR y el VIA correctos.</li>
-<li>Cambia la altitud de descenso en el piloto automático.</li>
-</ul>
-<p><b>Descenso</b></p>
-<ul>
-<li>A 10000 ft enciende las luces de cinturones y de aterrizaje y pon la velocidad manual en 250 (rueda al lado del botón SPD MACH).</li>
-<li>Si va muy rápido, baja los spoilers a la mitad para ayudar a reducir velocidad. Cuando el punto verde del altímetro se nivele, quita los spoilers.</li>
-<li>Enciende las luces RWY TURN OFF y LAND.</li>
-<li>Frenos automáticos en MED (medio).</li>
-<li>Baja la velocidad manual a 245 y sigue reduciendo hasta la raya del velocímetro que permite poner los flaps.</li>
-<li>Al pasar 6000 ft pon la presión barométrica en manual con el último valor que dio el ATC.</li>
-<li>Según la velocidad se ponen los flaps: el avión tiene una tablita con velocidad y flaps.</li>
-</ul>
-<p><b>Aproximación y aterrizaje</b></p>
-<ul>
-<li>Cuando vayas a interceptar la senda ILS, pulsa el botón APPR.</li>
-<li>Baja la altitud de forma constante al acercarte.</li>
-<li>Cuando confirmen el aterrizaje, baja el tren y confirma que las tres luces estén en verde.</li>
-<li>A unos 500 ft desactiva el piloto automático.</li>
-<li>Al tocar tierra: frenos, reversa y spoilers.</li>
-</ul>
-
-<h3>10. Después de aterrizar</h3>
-<ul>
-<li>Apaga las luces LAND.</li>
-<li>Pon el freno de estacionamiento.</li>
-<li>Pasillo de pasajeros.</li>
-<li>Conecta la GPU.</li>
-<li>Apaga los motores y las luces.</li>
-<li>Espera a que se desocupe el avión y entonces apaga el avión.</li>
-</ul>
-
-<div class="key"><b>Para verificar con tu manual del add-on.</b> Tres puntos de esta guía conviene contrastarlos: (1) el momento de activar el piloto automático y subir el tren (normalmente el tren sube con ascenso positivo y el AP se conecta más arriba, no al pasar V1); (2) la altitud donde se cambia a QNH en el descenso depende de la altitud/nivel de transición del aeropuerto, no de un valor fijo de 6000 ft (en SKBG, por ejemplo, la altitud de transición publicada es 18000 ft); (3) los valores de velocidad y luces por debajo de 10000 ft son los de tu ejemplo.</div>
 `,
 q:[
-{p:'¿Qué motor se arranca primero en la guía?',o:['El motor 1','El motor 2','Los dos a la vez','Ninguno: se arrancan con la GPU'],a:1,e:'Se mueve el conmutador del motor 2 a ON durante el pushback y después el del motor 1.'},
-{p:'Antes del despegue, ¿en qué posición se pone AUTO BRAKE?',o:['OFF','LO','MAX','MED'],a:2,e:'Con los spoilers armados, el autobrake va en MAX para el despegue. En el aterrizaje se usa MED (medio).'},
-{p:'¿Cómo se alinean los inerciales (ADIRS)?',o:['Se dejan en OFF','Se giran a NAV, esperando que se apague la luz de cada uno antes de pasar al siguiente','Se giran a ATT','Se alinean solo con el APU apagado'],a:1,e:'Los selectores 1, 2 y 3 se pasan a NAV uno por uno, esperando a que se apague la luz de cada uno.'},
-{p:'Al revisar el plan de vuelo de salida, ¿qué se compara con lo que dio el ATC?',o:['Solo el combustible','La pista (RWY) y la SID mostradas en DEPARTURE','Solo el número de vuelo','El peso ZFW'],a:1,e:'En F-PLN → DEPARTURE aparecen RWY y SID: ambos deben coincidir con la autorización del ATC.'},
-{p:'En la página INIT A, ¿qué se hace antes de escribir el número de vuelo?',o:['Pulsar PERF','Limpiar los mensajes con CLR y pulsar INIT','Armar los spoilers','Conectar la GPU'],a:1,e:'Se limpian los mensajes del arranque con CLR y, con la pantalla en blanco, se pulsa INIT.'}
+{p:'¿Qué significa V1?',o:['La velocidad a la que se retrae el tren','La velocidad de decisión: hasta ella se puede rechazar el despegue','La velocidad a la que se conecta el piloto automático','La velocidad de aproximación final'],a:1,e:'V1 es la velocidad de decisión de despegue. No es una orden para subir el tren ni para conectar el piloto automático.'},
+{p:'Según el QRC oficial del A320neo, ¿cómo quedan los selectores ADIRS en la lista Before Start?',o:['OFF','ATT','NAV','Solo el 1 en NAV'],a:2,e:'La lista Before Start exige ADIRS en NAV: los tres selectores inician la alineación y el ECAM muestra su progreso.'},
+{p:'¿Cuándo se retrae el tren tras el despegue?',o:['Al pasar V1','Antes de la rotación','Al confirmar el ascenso positivo','Cuando se pulsa APPR'],a:2,e:'La retracción del tren se vincula a la confirmación del ascenso positivo; la lista After Takeoff/Climb del QRC exige tren arriba.'},
+{p:'En la lista Before Takeoff del QRC oficial, ¿en qué posición queda AUTO BRAKE?',o:['OFF','LO','MED','MAX'],a:3,e:'El QRC indica Auto Brake en MAX antes del despegue. Para el aterrizaje, la selección depende de la pista, las condiciones y el procedimiento aplicable.'},
+{p:'Al revisar el plan de vuelo de salida, ¿qué se compara con lo que dio el ATC?',o:['Solo el combustible','La pista (RWY) y la SID mostradas en DEPARTURE','Solo el número de vuelo','El peso ZFW'],a:1,e:'En F-PLN → DEPARTURE aparecen RWY y SID: ambos deben coincidir con la autorización del ATC.'}
 ]};
 })();

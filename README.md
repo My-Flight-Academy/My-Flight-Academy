@@ -136,6 +136,48 @@ git push -u origin main
 
 ---
 
+## Arquitectura y hoja de ruta técnica
+
+> Esta sección documenta la evolución planificada hacia una plataforma comunitaria.
+> La Fase 1 está completada. Las siguientes se implementarán de forma incremental.
+
+![Fase 1 completada](https://img.shields.io/badge/Fase%201%20(BD%20%2B%20seguridad)-completada-3fbf7f?style=flat-square)
+![Fase 2 pendiente](https://img.shields.io/badge/Fase%202%20(autenticaci%C3%B3n)-pendiente-8a9ab3?style=flat-square)
+![Fase 3 pendiente](https://img.shields.io/badge/Fase%203%20(sincronizaci%C3%B3n)-pendiente-8a9ab3?style=flat-square)
+![Fase 4 pendiente](https://img.shields.io/badge/Fase%204%20(conector%20MSFS24)-pendiente-8a9ab3?style=flat-square)
+
+### Stack tecnológico
+
+| Capa | Tecnología | Estado |
+|---|---|---|
+| Frontend | HTML + CSS + JavaScript vanilla | ✅ En producción |
+| Backend | [Supabase](https://supabase.com) (PostgreSQL + Auth + RLS) | 🔄 Diseñado, pendiente de configurar |
+| Base de datos | PostgreSQL con Row Level Security | 🔄 Migración lista en `supabase/migrations/` |
+| Autenticación | Supabase Auth (email/contraseña, OAuth futuro) | 📋 Fase 2 |
+| Conector MSFS 2024 | C# + SimConnect SDK (aplicación Windows) | 📋 Fase 4 |
+
+### Fases de desarrollo backend
+
+| Fase | Descripción | Estado |
+|---|---|---|
+| **1** | Inspección, migración SQL, RLS, documentación de arquitectura | ✅ Completada |
+| **2** | Autenticación (registro, login, perfiles), onboarding | 📋 Pendiente |
+| **3** | Sincronización del diario local con la nube | 📋 Pendiente |
+| **4** | Conector Windows (SimConnect), vinculación de dispositivos | 📋 Pendiente |
+| **5** | Rankings, estadísticas comunitarias, validación de vuelos | 📋 Pendiente |
+
+### Documentación técnica
+
+| Documento | Descripción |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | Componentes, flujos de datos y decisiones técnicas |
+| [`docs/database.md`](docs/database.md) | Tablas, relaciones, restricciones y consultas |
+| [`docs/security.md`](docs/security.md) | Políticas RLS, amenazas y mitigaciones |
+| [`docs/setup-supabase.md`](docs/setup-supabase.md) | Guía de configuración del proyecto Supabase |
+| [`supabase/migrations/001_initial_schema.sql`](supabase/migrations/001_initial_schema.sql) | Migración inicial: tablas, índices, RLS |
+
+---
+
 <div align="center">
   <sub>Hecho con curiosidad y muchas horas de estudio ✈️ — Oscar David Rodriguez Porras</sub>
 </div>
