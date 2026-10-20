@@ -559,19 +559,22 @@ GRANT SELECT, UPDATE ON public.profiles TO authenticated;
 -- Esto impide a nivel del motor cualquier intento de modificar
 -- verification_status, user_id, id, created_at o session_uuid.
 --
--- Campos editables por el usuario:
+-- Campos editables por authenticated:
 --   dep_icao, arr_icao, alt_icao, aircraft, started_at, ended_at,
 --   duration_seconds, distance_nm, max_altitude_ft, landing_vs_fpm,
 --   flight_status, notes
 --   (updated_at lo gestiona el trigger; no hace falta permiso explícito)
 --
--- Campos NO editables por el usuario (sin GRANT de UPDATE):
+-- Campos NO editables por authenticated (sin GRANT de UPDATE):
 --   id, user_id, session_uuid, verification_status, created_at, updated_at
 --
 -- INTERACCIÓN CON service_role:
---   service_role tiene BYPASSRLS pero no column-level bypass automático.
---   Para verificar vuelos, debe usar verify_flight_status() (SECURITY DEFINER,
---   propietario postgres), que sí tiene acceso a esa columna.
+--   Supabase aplica por defecto GRANT ALL ON ALL TABLES ... TO service_role
+--   en proyectos nuevos, lo que incluiría UPDATE(verification_status).
+--   Se revoca explícitamente para que service_role deba usar
+--   verify_flight_status(), que incluye las validaciones de negocio.
+--   La función verify_flight_status() es SECURITY DEFINER con propietario
+--   postgres (superuser), que sí puede actualizar esa columna sin GRANT.
 -- ─────────────────────────────────────────────────────────────────────────────
 GRANT SELECT, INSERT, DELETE ON public.flights TO authenticated;
 
@@ -589,6 +592,14 @@ GRANT UPDATE (
     flight_status,
     notes
 ) ON public.flights TO authenticated;
+
+-- Revocar UPDATE(verification_status) de service_role explícitamente.
+-- Supabase puede aplicar GRANT ALL por defecto; este REVOKE garantiza que
+-- incluso service_role deba usar verify_flight_status() y no pueda
+-- modificar la columna directamente, independientemente de esos defaults.
+-- La función verify_flight_status() (propietario postgres, superuser)
+-- sí puede actualizar la columna sin necesitar este GRANT.
+REVOKE UPDATE (verification_status) ON public.flights FROM service_role;
 
 -- ── simulator_sessions ───────────────────────────────────────────────────────
 GRANT SELECT, INSERT, UPDATE ON public.simulator_sessions TO authenticated;
@@ -654,9 +665,8 @@ GRANT SELECT ON public.public_profiles TO anon, authenticated;
 --   - Manejar transiciones de estado (unverified → pending_review → verified).
 -- =============================================================================
 CREATE OR REPLACE FUNCTION public.verify_flight_status(
-    p_flight_id         UUID,
-    p_new_status        TEXT,
-    p_verified_by_role  TEXT DEFAULT 'service_role'
+    p_flight_id  UUID,
+    p_new_status TEXT
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -667,6 +677,8 @@ DECLARE
     v_flight public.flights%ROWTYPE;
 BEGIN
     -- Validar el valor del nuevo estado.
+    -- 'unverified' no es un estado alcanzable por esta función;
+    -- la reversión a unverified requeriría una vía administrativa separada.
     IF p_new_status NOT IN ('pending_review', 'verified', 'rejected') THEN
         RETURN jsonb_build_object(
             'ok', false,
@@ -684,7 +696,7 @@ BEGIN
         RETURN jsonb_build_object('ok', false, 'error', 'Vuelo no encontrado.');
     END IF;
 
-    -- Solo se pueden verificar vuelos completados.
+    -- Solo se pueden verificar vuelos completados o interrumpidos.
     IF v_flight.flight_status NOT IN ('completed', 'interrupted') THEN
         RETURN jsonb_build_object(
             'ok', false,
@@ -715,8 +727,8 @@ END;
 $$;
 
 -- Solo service_role puede ejecutar esta función.
-REVOKE EXECUTE ON FUNCTION public.verify_flight_status(UUID, TEXT, TEXT) FROM PUBLIC;
-GRANT  EXECUTE ON FUNCTION public.verify_flight_status(UUID, TEXT, TEXT) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.verify_flight_status(UUID, TEXT) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.verify_flight_status(UUID, TEXT) TO service_role;
 
 COMMENT ON FUNCTION public.verify_flight_status IS
     'Única vía autorizada para cambiar verification_status. '

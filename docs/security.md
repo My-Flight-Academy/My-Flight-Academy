@@ -131,9 +131,7 @@ Edge Function (Deno/Node) usa service_role_key
 
 Solo `service_role` tiene `EXECUTE` sobre `verify_flight_status()`. Un usuario `authenticated` que intente llamarla recibe `ERROR: permission denied for function verify_flight_status`.
 
----
-
-## 4. Permisos por rol y columna
+Adicionalmente, `service_role` no puede hacer `UPDATE (verification_status)` directamente: la migración incluye `REVOKE UPDATE (verification_status) ON public.flights FROM service_role`, que garantiza que incluso si Supabase aplica `GRANT ALL` por defecto, `service_role` deba pasar por `verify_flight_status()`. Solo `postgres` (propietario de la función, superuser) puede actualizar esa columna directamente.
 
 ### `public.profiles`
 
@@ -147,7 +145,7 @@ Solo `service_role` tiene `EXECUTE` sobre `verify_flight_status()`. Un usuario `
 | Rol | Privilegio de tabla | Columnas con UPDATE | Columnas SIN UPDATE |
 |---|---|---|---|
 | `authenticated` | SELECT, INSERT, DELETE | `dep_icao`, `arr_icao`, `alt_icao`, `aircraft`, `started_at`, `ended_at`, `duration_seconds`, `distance_nm`, `max_altitude_ft`, `landing_vs_fpm`, `flight_status`, `notes` | `id`, `user_id`, `session_uuid`, `verification_status`, `created_at`, `updated_at` |
-| `service_role` | BYPASSRLS (implícito) | Solo via `verify_flight_status()` | — |
+| `service_role` | BYPASSRLS (implícito) + `REVOKE UPDATE(verification_status)` explícito | Solo via `verify_flight_status()` | `verification_status` (revocado explícitamente) |
 
 ### `public.simulator_sessions` y `public.device_connections`
 
