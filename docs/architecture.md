@@ -142,16 +142,16 @@ ORDER BY duration_seconds DESC
 
 | Decisión | Justificación |
 |---|---|
-| **No migrar a React/Vue/Angular** | El frontend existente funciona. La migración a un framework es un coste sin beneficio en esta fase. Se puede hacer de forma incremental más adelante si se necesita. |
-| **Supabase como backend** | Proporciona auth, base de datos PostgreSQL, RLS, Storage y Edge Functions en un solo servicio gestionado. Sin servidor propio que mantener. Plan gratuito viable para el proyecto personal. |
-| **PostgreSQL + RLS, no Firebase** | RLS garantiza seguridad a nivel de fila directamente en la base de datos, independientemente del cliente. Firebase/Firestore no ofrece este nivel de control. |
-| **Sin telemetría de alta frecuencia en la BD** | Evita millones de filas por vuelo. Solo se almacenan resúmenes. Los datos de alta frecuencia viven en el conector durante el vuelo y se descartan después. |
-| **`UNIQUE(user_id, session_uuid)` en flights** | La unicidad por usuario expresa la invariante de negocio correcta. La unicidad global podría rechazar vuelos legítimos de distintos usuarios con el mismo UUID por un bug del conector. Ver `docs/database.md §3.2.1`. |
-| **`verification_status` protegido por trigger con `current_role`** | Las subconsultas autorreferenciales en `WITH CHECK` son frágiles bajo RLS recursivo. El trigger comprueba `current_role`, que no puede ser falsificado por el cliente. Ver `docs/security.md §3`. |
-| **Vista `public_profiles` con `security_invoker = true`** | Las vistas estándar ejecutan RLS con el propietario de la vista, omitiendo las políticas. `security_invoker` delega la evaluación al rol del llamante, que sí está sujeto a RLS. Requiere PostgreSQL 15. |
-| **GRANTs explícitos en la migración** | La configuración por defecto de Supabase aplica grants amplios, pero no es parte de la migración. Declararlos explícitamente hace la migración reproducible en instancias locales y entornos CI/CD. |
-| **`revoked_at` en lugar de DELETE en device_connections** | Mantener el historial de auditoría es más seguro. Un dispositivo revocado no puede reactivarse accidentalmente. |
-| **Trigger `handle_new_user` con SECURITY DEFINER** | Necesario para escribir en `public.profiles` desde el contexto de `auth`. Con guard de 100 iteraciones y manejo de email nulo (usuarios OAuth). |
+| **No migrar a React/Vue/Angular** | El frontend existente funciona. La migración a un framework es un coste sin beneficio en esta fase. |
+| **Supabase como backend** | Auth, PostgreSQL, RLS, Storage y Edge Functions en un solo servicio gestionado. Plan gratuito viable para fases iniciales. |
+| **PostgreSQL + RLS, no Firebase** | RLS garantiza seguridad a nivel de fila directamente en la BD, independientemente del cliente. |
+| **Sin telemetría de alta frecuencia en la BD** | Evita millones de filas por vuelo. Solo se almacenan resúmenes. |
+| **`UNIQUE(user_id, session_uuid)` en flights** | Expresa la invariante de negocio correcta: unicidad por usuario, no global. Ver `docs/database.md §3.2.1`. |
+| **Column-level GRANT para proteger `verification_status`** | La protección actúa a nivel del motor de BD, antes de RLS y antes de triggers, independientemente del propietario de la función. Es la capa más robusta disponible en PostgreSQL sin superuser. |
+| **Trigger `SECURITY INVOKER` como capa adicional** | Dentro de una función `SECURITY INVOKER`, `current_role` refleja el llamante real (no el propietario). Proporciona una segunda barrera sin depender de suposiciones sobre `SECURITY DEFINER`. |
+| **`verify_flight_status()` como única vía de verificación** | Solo `service_role` tiene EXECUTE. La función es SECURITY DEFINER (propietario postgres), lo que le permite actualizar `verification_status` sin que el column-level check lo bloquee. Controla el flujo: valida el vuelo antes de modificarlo. |
+| **`SECURITY DEFINER` solo en `handle_new_user` y `verify_flight_status`** | Son las únicas funciones que realmente necesitan privilegios elevados. El resto usan `SECURITY INVOKER` para mayor previsibilidad. |
+| **`revoked_at` en lugar de DELETE en device_connections** | Historial de auditoría. Un dispositivo revocado no puede reactivarse accidentalmente. |
 
 ---
 

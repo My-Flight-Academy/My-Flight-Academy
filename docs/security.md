@@ -1,30 +1,31 @@
 # Seguridad — My Flight Academy
 
-> Políticas de acceso, amenazas y mitigaciones. Fase 1 — revisión post-auditoría (v2).
+> Políticas de acceso, amenazas y mitigaciones. Fase 1 — v3 (corrección crítica).
 
 ---
 
 ## 1. Principios generales
 
-1. **Denegar por defecto.** RLS activado en todas las tablas. Sin políticas explícitas, nadie accede.
-2. **La seguridad vive en la base de datos, no en el frontend.** Las restricciones de RLS y los triggers se aplican independientemente del cliente.
-3. **La protección de campos críticos usa triggers, no subconsultas.** Ver §3 y §4.
-4. **Los secretos nunca en el repositorio.** `service_role_key` y `JWT_SECRET` van en variables de entorno del servidor.
-5. **Mínimo privilegio.** El frontend solo recibe la `anon_key` y la `supabase_url`. Los GRANTs de tabla son los mínimos necesarios.
+1. **Denegar por defecto.** RLS activado en todas las tablas.
+2. **La seguridad vive en la base de datos.** Restricciones, column-level privileges, RLS y triggers se aplican independientemente del cliente.
+3. **`verification_status` protegido en tres capas independientes.** Ver §3.
+4. **Los secretos nunca en el repositorio.** `service_role_key` y `JWT_SECRET` solo en variables de entorno del servidor.
+5. **Mínimo privilegio.** Los GRANTs son los mínimos necesarios por rol y por columna.
+6. **`SECURITY DEFINER` solo donde es necesario.** Las funciones de trigger que no necesitan privilegios elevados usan `SECURITY INVOKER` para que `current_role` refleje el llamante real.
 
 ---
 
-## 2. Resumen de políticas RLS (v2)
+## 2. Resumen de políticas RLS
 
 ### `public.profiles`
 
 | Operación | ¿Quién puede? | Condición |
 |---|---|---|
-| SELECT | Cualquiera (anon/authenticated) | Solo perfiles con `profile_visibility = 'public'` |
+| SELECT | Cualquiera | Solo perfiles `profile_visibility = 'public'` |
 | SELECT | El propietario | `auth.uid() = id` (incluye perfiles privados) |
 | UPDATE | El propietario | `auth.uid() = id`; `created_at` protegido por trigger |
-| INSERT | Solo el trigger `handle_new_user` | SECURITY DEFINER; usuarios no pueden insertar directamente |
-| DELETE | Nadie desde el cliente | Eliminación de cuenta gestionada por backend |
+| INSERT | Solo trigger `handle_new_user` | SECURITY DEFINER; usuarios no pueden insertar directamente |
+| DELETE | Nadie desde el cliente | Gestión de cuenta por backend |
 
 ### `public.flights`
 
@@ -32,245 +33,294 @@
 |---|---|---|
 | SELECT | El propietario | `auth.uid() = user_id` |
 | INSERT | El propietario | `auth.uid() = user_id` y `verification_status = 'unverified'` |
-| UPDATE | El propietario | `auth.uid() = user_id`; `verification_status` protegido por trigger |
+| UPDATE | El propietario | `auth.uid() = user_id`; columnas protegidas sin GRANT de UPDATE |
 | DELETE | El propietario | `auth.uid() = user_id` |
 
 ### `public.simulator_sessions`
 
 | Operación | ¿Quién puede? | Condición |
 |---|---|---|
-| SELECT | El propietario | `auth.uid() = user_id` |
-| INSERT | El propietario | `auth.uid() = user_id` |
-| UPDATE | El propietario | `auth.uid() = user_id` |
-| DELETE | Nadie | Sin política DELETE definida |
+| SELECT / INSERT / UPDATE | El propietario | `auth.uid() = user_id` |
+| DELETE | Nadie | Sin política DELETE |
 
 ### `public.device_connections`
 
 | Operación | ¿Quién puede? | Condición |
 |---|---|---|
-| SELECT | El propietario | `auth.uid() = user_id` |
-| INSERT | El propietario | `auth.uid() = user_id` |
-| UPDATE | El propietario | `auth.uid() = user_id` (revocar = poner `revoked_at`) |
-| DELETE | Nadie | Se usa `revoked_at` para mantener historial |
+| SELECT / INSERT / UPDATE | El propietario | `auth.uid() = user_id` |
+| DELETE | Nadie | Usar `revoked_at` para auditoría |
 
 ---
 
-## 3. Protección de `verification_status` (diseño definitivo)
+## 3. Protección de `verification_status` — diseño en tres capas
 
-### Problema de la v1
+### Por qué falló la v2
 
-La versión anterior usaba una subconsulta autorreferencial dentro del `WITH CHECK` de la política `flights_update_own`:
+La v2 usaba un trigger `SECURITY DEFINER` que evaluaba `current_role IN ('authenticated', 'anon')`. Esta lógica es incorrecta porque la documentación oficial de PostgreSQL establece que dentro de una función `SECURITY DEFINER`, `current_role` (equivalente a `current_user`) devuelve el **propietario de la función**, no el rol que originó la llamada:
 
-```sql
-verification_status = (SELECT verification_status FROM public.flights f2 WHERE f2.id = flights.id)
-```
+> *"The `current_user` is the user identifier applicable for permission checking. Normally it equals the session user, but **it changes during the execution of functions with the attribute SECURITY DEFINER**."*
+> — PostgreSQL docs, "Miscellaneous Functions", vigente desde PG 7.3.
 
-Esta subconsulta es frágil: dentro de `WITH CHECK`, la consulta a la misma tabla puede reevaluar las políticas RLS y devolver un conjunto vacío o provocar recursión. Además incluía `OR auth.uid() IS NULL` como fallback que podría actuar como bypass para el rol `anon` en condiciones futuras.
+Como el propietario de la función en Supabase es `postgres`, `current_role` siempre era `'postgres'`, la condición nunca era verdadera y el trigger nunca bloqueaba nada.
 
-### Solución implementada (v2): trigger que comprueba `current_role`
-
-```sql
-CREATE OR REPLACE FUNCTION public.protect_flights_verification_status()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-    IF NEW.verification_status IS NOT DISTINCT FROM OLD.verification_status THEN
-        RETURN NEW;  -- El campo no cambia: no hay nada que bloquear.
-    END IF;
-    IF current_role IN ('authenticated', 'anon') THEN
-        RAISE EXCEPTION '...' USING ERRCODE = 'insufficient_privilege';
-    END IF;
-    RETURN NEW;
-END;
-$$;
-```
-
-### Por qué `current_role` es seguro
-
-`current_role` es el rol PostgreSQL activo en la sesión de base de datos, asignado por Supabase al autenticar la petición a través de su proxy (PostgREST). No es un valor del token JWT que el cliente pueda modificar:
-
-- Un cliente con `anon_key` → `current_role = 'anon'`
-- Un cliente con JWT válido → `current_role = 'authenticated'`
-- Una Edge Function con `service_role_key` → `current_role = 'service_role'`
-- Código del servidor (postgres directo) → `current_role = 'postgres'`
-
-Un usuario no puede hacer `SET ROLE service_role` desde una petición de cliente normal: ese comando requiere que el rol actual tenga el privilegio `SET ROLE` sobre el destino, que `authenticated` no tiene.
-
-### Por qué NO se usa `SECURITY DEFINER` como bypass
-
-`SECURITY DEFINER` cambia el contexto de privilegios de una función (permite acceder a objetos como el propietario), pero **no cambia `current_role`**. `current_role` refleja el rol de la sesión de base de datos, no el propietario de la función en ejecución. Por tanto, una función `SECURITY DEFINER` ejecutada por un usuario `authenticated` sigue mostrando `current_role = 'authenticated'` dentro del trigger — a menos que la función incluya `SET ROLE postgres` explícitamente, lo que requiere ser superuser.
-
-### Cómo funciona la verificación futura de backend (Fase 4/5)
-
-Cuando exista la Edge Function de verificación:
+### La solución v3: tres capas independientes
 
 ```
-Edge Function (Deno/Node) → usa service_role_key para autenticar
-  → PostgreSQL recibe la petición con current_role = 'service_role'
-  → trigger permite el cambio de verification_status
+Petición UPDATE de usuario authenticated
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│ CAPA 1: Column-level privilege (motor PostgreSQL)            │
+│                                                              │
+│ authenticated NO tiene GRANT UPDATE(verification_status).   │
+│ Si el UPDATE incluye esa columna, PostgreSQL lanza:          │
+│   ERROR: permission denied for column "verification_status"  │
+│ Ocurre antes de RLS y antes de cualquier trigger.            │
+└──────────────────────────────┬───────────────────────────────┘
+                               │ (solo llega aquí si no tocó verification_status)
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│ CAPA 2: RLS flights_insert_own (solo para INSERT)            │
+│                                                              │
+│ WITH CHECK (verification_status = 'unverified')              │
+│ Impide insertar con un estado distinto de 'unverified'.      │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│ CAPA 3: Trigger SECURITY INVOKER (defensa en profundidad)    │
+│                                                              │
+│ protect_verification_status() es SECURITY INVOKER.          │
+│ current_role dentro de ella refleja el llamante real:        │
+│   authenticated → bloqueado si intenta cambiar el campo.    │
+│   postgres/service_role → permitido.                        │
+│ Actúa como red de seguridad si la Capa 1 falla o se omite.  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Por qué `SECURITY INVOKER` es correcto para el trigger de protección
+
+`SECURITY INVOKER` (comportamiento por defecto de las funciones en PostgreSQL) hace que la función se ejecute con los privilegios del llamante. Como consecuencia directa, `current_role` dentro de la función refleja el rol real de la sesión:
+
+| Llamante | `current_role` dentro del trigger SECURITY INVOKER |
+|---|---|
+| Usuario via PostgREST (JWT válido) | `authenticated` |
+| Petición anónima | `anon` |
+| Edge Function con `service_role_key` | `service_role` |
+| Conexión directa como `postgres` | `postgres` |
+
+La condición `current_role IN ('authenticated', 'anon')` funciona correctamente con `SECURITY INVOKER`.
+
+### Por qué `SECURITY DEFINER` sigue siendo correcto para `handle_new_user`
+
+`handle_new_user` necesita `SECURITY DEFINER` porque se ejecuta desde el esquema `auth` y debe escribir en `public.profiles`, donde el nuevo usuario aún no tiene permisos. El uso de `SECURITY DEFINER` aquí es correcto porque **no toma decisiones de autorización basadas en `current_role`**; simplemente inserta el perfil con los privilegios del propietario (`postgres`).
+
+### Cómo verifica vuelos el backend (Fase futura)
+
+La única vía autorizada es la función `public.verify_flight_status()`:
+
+```
+Edge Function (Deno/Node) usa service_role_key
+  → PostgREST establece: SET LOCAL ROLE service_role
+  → Llama a: SELECT verify_flight_status(flight_id, 'verified')
+  → verify_flight_status() es SECURITY DEFINER (propietario: postgres)
+  → Dentro de ella, current_role = 'postgres'
+  → postgres no está en la lista de bloqueo del trigger SECURITY INVOKER
   → UPDATE procede
 ```
 
-No se necesita ninguna variable de sesión ni flag especial. La distinción es estructural: el rol de la conexión lo determina la clave de API usada, no el código del cliente.
-
-Alternativamente, la Edge Function puede ser una función SQL `SECURITY DEFINER` con propietario `postgres`:
-
-```sql
-CREATE OR REPLACE FUNCTION public.verify_flight(flight_id UUID)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-    -- current_role aquí será 'postgres' (propietario de la función),
-    -- que está permitido por el trigger.
-    UPDATE public.flights
-    SET verification_status = 'verified'
-    WHERE id = flight_id;
-END;
-$$;
-```
-
-### Lo que el trigger no hace
-
-- No protege otros campos de `flights` (para eso están las políticas RLS).
-- No valida la telemetría (eso lo hará la lógica de la Edge Function de verificación).
-- No revierte vuelos ya verificados (escenario de contestación: fuera del alcance de Fase 1).
+Solo `service_role` tiene `EXECUTE` sobre `verify_flight_status()`. Un usuario `authenticated` que intente llamarla recibe `ERROR: permission denied for function verify_flight_status`.
 
 ---
 
-## 4. Protección de `profiles.created_at`
+## 4. Permisos por rol y columna
 
-Implementada con el trigger `trg_profiles_protect_created_at`:
+### `public.profiles`
 
-```sql
-IF NEW.created_at IS DISTINCT FROM OLD.created_at THEN
-    RAISE EXCEPTION 'profiles.created_at es inmutable...'
-    USING ERRCODE = 'integrity_constraint_violation';
-END IF;
-```
-
-El trigger se ejecuta para cualquier rol, incluyendo `authenticated`. Un usuario no puede falsificar su fecha de registro.
-
----
-
-## 5. Vista `public_profiles` con `security_invoker`
-
-### Problema de la v1
-
-Las vistas PostgreSQL usan por defecto `security_definer` semántics: se ejecutan con los privilegios del propietario de la vista (normalmente `postgres`), omitiendo RLS. La única barrera en la v1 era la cláusula `WHERE profile_visibility = 'public'` de la vista, que no tiene las garantías de enforcement de RLS.
-
-### Solución implementada (v2)
-
-```sql
-CREATE OR REPLACE VIEW public.public_profiles
-    WITH (security_invoker = true)
-AS ...
-```
-
-Con `security_invoker = true` (disponible desde PostgreSQL 15, que usa Supabase desde 2023):
-- La vista evalúa RLS con el rol del llamante, no del propietario.
-- `anon` solo ve perfiles donde se cumple `profiles_select_public` (visibilidad pública).
-- `authenticated` ve perfiles públicos + el suyo propio.
-
-### Permisos necesarios para que `security_invoker` funcione
-
-Para que PostgreSQL pueda evaluar las políticas RLS cuando se llama a la vista, el rol llamante necesita `SELECT` sobre la tabla subyacente. Sin ese GRANT, PostgreSQL lanza `permission denied` antes de llegar a evaluar RLS:
-
-```sql
-GRANT SELECT ON public.profiles TO anon;       -- Para que RLS se evalúe
-GRANT SELECT ON public.public_profiles TO anon, authenticated;
-```
-
-Esto no da a `anon` acceso libre a `profiles`: RLS filtra lo que ve. El GRANT es el permiso de "intentar la lectura"; RLS es el filtro de "qué filas se devuelven".
-
----
-
-## 6. Permisos de tabla (GRANTs)
-
-| Rol | Tabla | Privilegios |
+| Rol | Privilegio | Notas |
 |---|---|---|
-| `anon` | `public.profiles` | SELECT (necesario para `security_invoker`) |
-| `anon` | `public.public_profiles` (vista) | SELECT |
-| `authenticated` | `public.profiles` | SELECT, UPDATE |
-| `authenticated` | `public.flights` | SELECT, INSERT, UPDATE, DELETE |
-| `authenticated` | `public.simulator_sessions` | SELECT, INSERT, UPDATE |
-| `authenticated` | `public.device_connections` | SELECT, INSERT, UPDATE |
+| `anon` | SELECT | Solo para que `security_invoker` de la vista evalúe RLS |
+| `authenticated` | SELECT, UPDATE | UPDATE sobre todos los campos del perfil |
 
-`authenticated` **no tiene INSERT en `profiles`** (lo gestiona el trigger). No se define `DELETE` para usuarios en `profiles`, `simulator_sessions` ni `device_connections`.
+### `public.flights`
 
-### Por qué no se revoca `UPDATE (verification_status)` a nivel de columna
+| Rol | Privilegio de tabla | Columnas con UPDATE | Columnas SIN UPDATE |
+|---|---|---|---|
+| `authenticated` | SELECT, INSERT, DELETE | `dep_icao`, `arr_icao`, `alt_icao`, `aircraft`, `started_at`, `ended_at`, `duration_seconds`, `distance_nm`, `max_altitude_ft`, `landing_vs_fpm`, `flight_status`, `notes` | `id`, `user_id`, `session_uuid`, `verification_status`, `created_at`, `updated_at` |
+| `service_role` | BYPASSRLS (implícito) | Solo via `verify_flight_status()` | — |
 
-Los column-level privileges en PostgreSQL son más granulares que los de tabla, pero tienen una limitación importante: si un UPDATE incluye `verification_status` (aunque sea con el mismo valor), PostgreSQL exige el privilegio de columna para esa columna. Esto rompería las actualizaciones legítimas del usuario en otras columnas si el cliente ORM incluye todos los campos.
+### `public.simulator_sessions` y `public.device_connections`
 
-La protección mediante trigger es más robusta: permite la actualización de otros campos libremente y solo bloquea los cambios reales en `verification_status`.
+| Rol | Privilegio |
+|---|---|
+| `authenticated` | SELECT, INSERT, UPDATE (todos los campos, RLS como barrera) |
 
----
+### Funciones
 
-## 7. Funciones SECURITY DEFINER: permisos de ejecución
-
-| Función | Quién puede ejecutarla | Por qué |
+| Función | Tipo seguridad | `EXECUTE` para |
 |---|---|---|
-| `set_updated_at()` | Solo triggers (REVOKE PUBLIC) | No debe ser invocada directamente |
-| `handle_new_user()` | Solo triggers (REVOKE PUBLIC) | No debe ser invocada directamente |
-| `protect_flights_verification_status()` | Solo triggers (REVOKE PUBLIC) | No debe ser invocada directamente |
-| `protect_profiles_created_at()` | Solo triggers (REVOKE PUBLIC) | No debe ser invocada directamente |
-
-Revocar `EXECUTE` a `PUBLIC` no impide que los triggers ejecuten las funciones: los triggers se ejecutan con los privilegios del propietario de la función (que es el propietario que creó el trigger), no del rol de la sesión.
+| `set_updated_at()` | SECURITY INVOKER | Nadie (solo triggers) |
+| `protect_profiles_created_at()` | SECURITY INVOKER | Nadie (solo triggers) |
+| `handle_new_user()` | SECURITY DEFINER | Nadie (solo triggers) |
+| `protect_verification_status()` | SECURITY INVOKER | Nadie (solo triggers) |
+| `verify_flight_status()` | SECURITY DEFINER | `service_role` únicamente |
 
 ---
 
-## 8. Amenazas y mitigaciones (actualizado)
+## 5. Amenazas y mitigaciones (actualizado v3)
 
 | Amenaza | Mitigación |
 |---|---|
-| Usuario lee datos privados de otro | RLS en todas las tablas; políticas `*_own` basadas en `auth.uid()` |
-| Usuario se auto-verifica un vuelo | Trigger `trg_flights_protect_verification` comprueba `current_role`; no se puede falsificar desde el cliente |
-| Usuario cambia `user_id` de un vuelo | `WITH CHECK (auth.uid() = user_id)` en `flights_update_own` |
-| Usuario falsifica `created_at` del perfil | Trigger `trg_profiles_protect_created_at` |
-| Usuario anónimo accede a tablas internas | Sin políticas SELECT para `anon` en `flights`, `simulator_sessions`, `device_connections` |
-| Secretos en el repositorio | Ninguna credencial en código; ver `setup-supabase.md §6` |
+| Usuario autenticado cambia `verification_status` via UPDATE | Capa 1: sin GRANT UPDATE(verification_status); Capa 3: trigger SECURITY INVOKER |
+| Usuario inserta vuelo con `verification_status = 'verified'` | Capa 2: RLS `flights_insert_own` WITH CHECK |
+| Usuario llama a `verify_flight_status()` directamente | Sin EXECUTE para `authenticated`; error antes de ejecutarse |
+| Función RPC `SECURITY DEFINER` callable por usuarios cambia `verification_status` | Solo `verify_flight_status()` tiene ese acceso, y solo `service_role` puede llamarla |
+| Usuario falsifica `created_at` del perfil | Trigger `protect_profiles_created_at` (SECURITY INVOKER) |
+| Usuario lee datos privados de otro | RLS por `auth.uid()` en todas las tablas |
+| Secretos en el repositorio | Sin credenciales en código; ver `setup-supabase.md §6` |
 | Conector falsifica cronologías | `started_at`/`last_seen` los asigna el servidor con `now()` |
-| Vista expone perfiles privados | `security_invoker = true`; RLS filtra por `profile_visibility` |
+| Vista expone perfiles privados | `security_invoker = true`; RLS filtra |
 
 ---
 
-## 9. Pruebas de RLS recomendadas (post-migración)
+## 6. Limitaciones conocidas
+
+- **`BYPASSRLS` no bypasea column-level privileges.** `service_role` no puede hacer `UPDATE (verification_status)` directamente; debe usar `verify_flight_status()`. Esto es intencional.
+- **Un superuser puede desactivar triggers.** No hay protección SQL contra un superuser (`postgres`) determinado a modificar datos. Es una limitación del modelo de seguridad de PostgreSQL, no un fallo del diseño.
+- **Protecciones pendientes de verificación empírica.** La Capa 1 (column-level) y la Capa 3 (trigger SECURITY INVOKER) no han sido probadas en una instancia Supabase real. Ver §7.
+
+---
+
+## 7. Pruebas recomendadas (pendientes de ejecución)
+
+Las pruebas están diseñadas para ejecutarse en `supabase start` (instancia local). **No se han ejecutado.** Se indica el resultado esperado basado en el análisis del SQL.
 
 ```sql
--- ── Test 1: anon no puede leer flights ──────────────────────────────────────
-SET LOCAL role anon;
-SELECT count(*) FROM public.flights;
--- Esperado: 0 filas (RLS bloquea sin error porque no hay política SELECT para anon)
+-- ── SETUP ────────────────────────────────────────────────────────────────────
+-- (Como postgres, que bypasea RLS y column-level checks)
 
--- ── Test 2: authenticated no puede cambiar verification_status ───────────────
-SET LOCAL role authenticated;
-SET LOCAL "request.jwt.claims" TO '{"sub":"<uuid>","role":"authenticated"}';
+INSERT INTO auth.users (id, email, encrypted_password, created_at, updated_at)
+VALUES
+    ('aaaaaaaa-0000-0000-0000-000000000001', 'usera@test.com', 'x', now(), now()),
+    ('bbbbbbbb-0000-0000-0000-000000000002', 'userb@test.com', 'x', now(), now())
+ON CONFLICT DO NOTHING;
+-- Nota: handle_new_user crea los perfiles automáticamente.
+
+-- Vuelo del usuario A (unverified)
+INSERT INTO public.flights
+    (id, user_id, dep_icao, arr_icao, aircraft, duration_seconds,
+     flight_status, verification_status)
+VALUES
+    ('ffffffff-0000-0000-0000-000000000010',
+     'aaaaaaaa-0000-0000-0000-000000000001',
+     'SKBO', 'SKBG', 'Cessna 172', 3600, 'completed', 'unverified')
+ON CONFLICT DO NOTHING;
+
+
+-- ── TEST 1: Usuario A intenta verificar su propio vuelo (debe fallar) ─────────
+-- Capa 1: sin GRANT UPDATE(verification_status) para authenticated.
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO
+    '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}';
+
 UPDATE public.flights
    SET verification_status = 'verified'
- WHERE user_id = '<uuid>';
--- Esperado: ERROR insufficient_privilege (trigger)
+ WHERE id = 'ffffffff-0000-0000-0000-000000000010';
+-- ESPERADO: ERROR permission denied for column "verification_status"
 
--- ── Test 3: anon no ve perfiles privados en la vista ─────────────────────────
-SET LOCAL role anon;
-SELECT count(*) FROM public.public_profiles
- WHERE id IN (SELECT id FROM public.profiles WHERE profile_visibility = 'private');
--- Esperado: 0 filas
 
--- ── Test 4: propietario ve su perfil privado ─────────────────────────────────
-SET LOCAL role authenticated;
-SET LOCAL "request.jwt.claims" TO '{"sub":"<uuid-de-perfil-privado>","role":"authenticated"}';
-SELECT id, profile_visibility FROM public.profiles WHERE id = '<uuid-de-perfil-privado>';
--- Esperado: 1 fila con profile_visibility = 'private'
+-- ── TEST 2: Usuario B intenta verificar el vuelo de A (debe fallar) ──────────
+-- Capa 1: sin GRANT UPDATE(verification_status) para authenticated.
+-- Además RLS: el vuelo no es de B.
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO
+    '{"sub":"bbbbbbbb-0000-0000-0000-000000000002","role":"authenticated"}';
 
--- ── Test 5: usuario no puede falsificar created_at ───────────────────────────
-SET LOCAL role authenticated;
-SET LOCAL "request.jwt.claims" TO '{"sub":"<uuid>","role":"authenticated"}';
-UPDATE public.profiles SET created_at = '2020-01-01' WHERE id = '<uuid>';
--- Esperado: ERROR integrity_constraint_violation (trigger)
+UPDATE public.flights
+   SET verification_status = 'verified'
+ WHERE id = 'ffffffff-0000-0000-0000-000000000010';
+-- ESPERADO: 0 filas afectadas (RLS bloquea antes del error de columna)
+-- o ERROR permission denied for column — el orden puede variar por versión PG.
+
+
+-- ── TEST 3: Usuario A actualiza un campo permitido (debe funcionar) ───────────
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO
+    '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}';
+
+UPDATE public.flights
+   SET notes = 'Vuelo de práctica en circuito.'
+ WHERE id = 'ffffffff-0000-0000-0000-000000000010';
+-- ESPERADO: UPDATE 1
+
+
+-- ── TEST 4: Usuario intenta actualizar user_id o session_uuid (debe fallar) ───
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO
+    '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}';
+
+UPDATE public.flights
+   SET user_id = 'bbbbbbbb-0000-0000-0000-000000000002'
+ WHERE id = 'ffffffff-0000-0000-0000-000000000010';
+-- ESPERADO: ERROR permission denied for column "user_id"
+
+
+-- ── TEST 5: Usuario inserta vuelo con verification_status = 'verified' ────────
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO
+    '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}';
+
+INSERT INTO public.flights
+    (user_id, dep_icao, arr_icao, aircraft, duration_seconds, verification_status)
+VALUES
+    ('aaaaaaaa-0000-0000-0000-000000000001',
+     'SKBO', 'SKBG', 'Cessna 172', 3600, 'verified');
+-- ESPERADO: ERROR new row violates row-level security policy (RLS flights_insert_own)
+
+
+-- ── TEST 6: authenticated llama a verify_flight_status() (debe fallar) ────────
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO
+    '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}';
+
+SELECT public.verify_flight_status(
+    'ffffffff-0000-0000-0000-000000000010',
+    'verified'
+);
+-- ESPERADO: ERROR permission denied for function verify_flight_status
+
+
+-- ── TEST 7: service_role llama a verify_flight_status() (debe funcionar) ─────
+SET LOCAL ROLE service_role;
+
+SELECT public.verify_flight_status(
+    'ffffffff-0000-0000-0000-000000000010',
+    'verified'
+);
+-- ESPERADO: {"ok": true, "flight_id": "ffff...", "new_status": "verified"}
+
+-- Verificar que el cambio se aplicó:
+SELECT id, verification_status FROM public.flights
+ WHERE id = 'ffffffff-0000-0000-0000-000000000010';
+-- ESPERADO: verification_status = 'verified'
+
+
+-- ── TEST 8: Column-level + RLS funcionan conjuntamente ────────────────────────
+-- Verificar que authenticated puede INSERT (RLS permite) pero no con verified.
+-- Verificar que authenticated puede UPDATE notas pero no verification_status.
+-- (Combinación de Tests 3 y 5 con datos reales del setup.)
+-- Ver Tests 3 y 5 arriba.
+
+
+-- ── LIMPIEZA ──────────────────────────────────────────────────────────────────
+-- (Como postgres)
+DELETE FROM public.flights  WHERE id = 'ffffffff-0000-0000-0000-000000000010';
+DELETE FROM public.profiles WHERE id IN (
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    'bbbbbbbb-0000-0000-0000-000000000002'
+);
+DELETE FROM auth.users WHERE id IN (
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    'bbbbbbbb-0000-0000-0000-000000000002'
+);
 ```
-
----
-
-## 10. Limitaciones conocidas
-
-- **Protección de `verification_status` pendiente de prueba real.** El análisis de `current_role` es correcto en teoría; la confirmación requiere ejecutar los Tests 2 y 7 de §9 en una instancia Supabase real.
-- **`security_invoker` requiere PostgreSQL 15.** Verificar la versión del proyecto en Supabase antes de aplicar (`SELECT version()`).
-- **La verificación automática de vuelos no existe aún.** `verification_status` permanece `'unverified'` hasta que se implemente la Edge Function en Fase 4/5.
-- **Rankings solo de vuelos verificados.** Los vuelos manuales no cuentan en rankings comunitarios.

@@ -159,26 +159,36 @@ SELECT id, username, profile_visibility FROM public.profiles;
 
 ### Pruebas automáticas con pgTAP (Fase 2)
 
-En Fase 2 se añadirán pruebas formales en `supabase/tests/` usando la librería `pgTAP`. Ejemplo de estructura:
+En Fase 2 se añadirán pruebas formales en `supabase/tests/` usando `pgTAP`. Ejemplo:
 
 ```sql
--- supabase/tests/rls_flights_test.sql
 SELECT plan(3);
 
--- Test: usuario anónimo no puede leer flights directamente
-SET LOCAL role anon;
-SELECT is_empty(
-    $$ SELECT * FROM public.flights $$,
-    'anon no ve filas en flights'
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}';
+
+-- authenticated no puede cambiar verification_status (column-level privilege)
+SELECT throws_ok(
+    $$ UPDATE public.flights SET verification_status = 'verified'
+       WHERE id = 'ffffffff-0000-0000-0000-000000000010' $$,
+    '42501',
+    'permission denied for column verification_status',
+    'authenticated no puede cambiar verification_status'
 );
 
--- Test: usuario autenticado no puede cambiar verification_status
-SET LOCAL role authenticated;
-SET LOCAL "request.jwt.claims" TO '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}';
+-- authenticated sí puede cambiar notes
+SELECT lives_ok(
+    $$ UPDATE public.flights SET notes = 'ok'
+       WHERE id = 'ffffffff-0000-0000-0000-000000000010' $$,
+    'authenticated puede cambiar notes'
+);
+
+-- authenticated no puede llamar a verify_flight_status
 SELECT throws_ok(
-    $$ UPDATE public.flights SET verification_status = ''verified'' WHERE id = ''00000000-0000-0000-0000-000000000002'' $$,
-    'insufficient_privilege',
-    'authenticated no puede auto-verificar un vuelo'
+    $$ SELECT public.verify_flight_status('ffffffff-0000-0000-0000-000000000010','verified') $$,
+    '42501',
+    'permission denied for function verify_flight_status',
+    'authenticated no puede llamar a verify_flight_status'
 );
 
 SELECT finish();

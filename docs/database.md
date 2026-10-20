@@ -93,23 +93,23 @@ El diario actual en `localStorage` usa este esquema por entrada. Al sincronizar 
 | Columna | Tipo | Nullable | Default | Restricciones |
 |---|---|---|---|---|
 | `id` | UUID | NO | `gen_random_uuid()` | PK |
-| `user_id` | UUID | NO | — | FK → profiles(id) CASCADE |
-| `session_uuid` | UUID | SÍ | — | UNIQUE compuesta `(user_id, session_uuid)` — ver §3.2.1 |
-| `dep_icao` | CHAR(4) | SÍ | — | regex `^[A-Z0-9]{4}$` |
-| `arr_icao` | CHAR(4) | SÍ | — | regex `^[A-Z0-9]{4}$` |
-| `alt_icao` | CHAR(4) | SÍ | — | regex `^[A-Z0-9]{4}$` |
-| `aircraft` | TEXT | SÍ | — | máx 80 chars |
-| `started_at` | TIMESTAMPTZ | SÍ | — | Par con `ended_at` |
-| `ended_at` | TIMESTAMPTZ | SÍ | — | > `started_at` |
-| `duration_seconds` | INTEGER | SÍ | — | 60–86400; coherencia con fechas si ambas presentes |
-| `distance_nm` | NUMERIC(8,2) | SÍ | — | > 0 |
-| `max_altitude_ft` | INTEGER | SÍ | — | -2000–100000 |
-| `landing_vs_fpm` | INTEGER | SÍ | — | -6000–6000, NULL si no medido |
-| `flight_status` | TEXT | NO | 'planned' | IN ('planned','active','completed','interrupted','cancelled') |
-| `verification_status` | TEXT | NO | 'unverified' | IN ('unverified','pending_review','verified','rejected') — **protegido por trigger** |
-| `notes` | TEXT | SÍ | — | máx 4000 chars |
-| `created_at` | TIMESTAMPTZ | NO | `now()` | |
-| `updated_at` | TIMESTAMPTZ | NO | `now()` | Trigger |
+| `user_id` | UUID | NO | — | FK → profiles(id) CASCADE; **sin GRANT UPDATE** para authenticated |
+| `session_uuid` | UUID | SÍ | — | UNIQUE compuesta `(user_id, session_uuid)`; **sin GRANT UPDATE** |
+| `dep_icao` | CHAR(4) | SÍ | — | regex `^[A-Z0-9]{4}$`; GRANT UPDATE ✓ |
+| `arr_icao` | CHAR(4) | SÍ | — | regex `^[A-Z0-9]{4}$`; GRANT UPDATE ✓ |
+| `alt_icao` | CHAR(4) | SÍ | — | regex `^[A-Z0-9]{4}$`; GRANT UPDATE ✓ |
+| `aircraft` | TEXT | SÍ | — | máx 80 chars; GRANT UPDATE ✓ |
+| `started_at` | TIMESTAMPTZ | SÍ | — | Par con `ended_at`; GRANT UPDATE ✓ |
+| `ended_at` | TIMESTAMPTZ | SÍ | — | > `started_at`; GRANT UPDATE ✓ |
+| `duration_seconds` | INTEGER | SÍ | — | 60–86400; coherente con fechas si presentes; GRANT UPDATE ✓ |
+| `distance_nm` | NUMERIC(8,2) | SÍ | — | > 0; GRANT UPDATE ✓ |
+| `max_altitude_ft` | INTEGER | SÍ | — | -2000–100000; GRANT UPDATE ✓ |
+| `landing_vs_fpm` | INTEGER | SÍ | — | -6000–6000, NULL si no medido; GRANT UPDATE ✓ |
+| `flight_status` | TEXT | NO | 'planned' | IN ('planned','active','completed','interrupted','cancelled'); GRANT UPDATE ✓ |
+| `verification_status` | TEXT | NO | 'unverified' | IN ('unverified','pending_review','verified','rejected'); **SIN GRANT UPDATE para authenticated** |
+| `notes` | TEXT | SÍ | — | máx 4000 chars; GRANT UPDATE ✓ |
+| `created_at` | TIMESTAMPTZ | NO | `now()` | **Sin GRANT UPDATE** |
+| `updated_at` | TIMESTAMPTZ | NO | `now()` | Trigger `set_updated_at`; **sin GRANT UPDATE** |
 
 #### 3.2.1. Decisión: unicidad de `session_uuid`
 
