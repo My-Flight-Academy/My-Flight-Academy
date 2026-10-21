@@ -261,22 +261,21 @@ CREATE TABLE IF NOT EXISTS public.flights (
     -- ── verification_status ────────────────────────────────────────────────
     -- PROTECCIÓN EN TRES CAPAS (ver docs/security.md §3):
     --
-    -- Capa 1 — Column-level privilege (más temprana):
-    --   authenticated NO tiene UPDATE(verification_status).
-    --   PostgreSQL rechaza cualquier UPDATE que incluya esta columna antes
-    --   de evaluar RLS o disparar triggers.
-    --   service_role SÍ tiene UPDATE(verification_status) via la función
-    --   verify_flight_status() que es la única vía autorizada.
+    -- Capa 1 — Column-level privilege:
+    --   authenticated NO tiene GRANT UPDATE(verification_status).
+    --   Bloquea a authenticated antes de RLS o triggers.
+    --   NO protege a service_role: en Supabase, service_role tiene GRANT ALL
+    --   a nivel de tabla por defecto; un REVOKE de columna no puede bloquear
+    --   ese GRANT de tabla (permisos acumulativos en PostgreSQL).
     --
     -- Capa 2 — Política RLS flights_insert_own:
     --   Al insertar, verification_status debe ser 'unverified'.
     --
-    -- Capa 3 — Trigger SECURITY INVOKER (defensa en profundidad):
-    --   Si por algún motivo las capas 1 y 2 no cubriesen un caso, el trigger
-    --   bloquea cualquier cambio de verification_status desde 'authenticated'
-    --   o 'anon'. Al ser SECURITY INVOKER, current_role refleja el rol real
-    --   del llamante (no el propietario de la función), lo que hace que la
-    --   comprobación sea fiable.
+    -- Capa 3 — Trigger SECURITY INVOKER (mecanismo principal contra service_role):
+    --   Bloquea a 'authenticated', 'anon' Y 'service_role' si intentan cambiar
+    --   el campo directamente. Solo permite el cambio cuando current_role es
+    --   'postgres' (el propietario de verify_flight_status, SECURITY DEFINER),
+    --   que es la única vía de modificación autorizada.
     -- ──────────────────────────────────────────────────────────────────────
     verification_status TEXT NOT NULL DEFAULT 'unverified'
                             CHECK (verification_status IN (
@@ -314,8 +313,10 @@ CREATE TABLE IF NOT EXISTS public.flights (
 
 COMMENT ON TABLE  public.flights IS 'Bitácora de vuelo. Cada fila = un vuelo registrado manual o automáticamente por el conector.';
 COMMENT ON COLUMN public.flights.verification_status IS
-    'Solo el backend (service_role via verify_flight_status) puede cambiar este campo. '
-    'Protegido por column-level privilege, RLS y trigger SECURITY INVOKER.';
+    'Solo el backend puede cambiar este campo a través de verify_flight_status(). '
+    'Protegido por: column-level privilege (bloquea authenticated), '
+    'trigger SECURITY INVOKER (bloquea authenticated, anon y service_role). '
+    'service_role debe usar verify_flight_status() — el UPDATE directo queda bloqueado por el trigger.';
 COMMENT ON COLUMN public.flights.session_uuid IS 'UUID de la sesión del conector. Único por (user_id, session_uuid).';
 
 CREATE INDEX IF NOT EXISTS idx_flights_user_created
@@ -387,12 +388,25 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    -- Bloquear a usuarios finales.
-    -- Con SECURITY INVOKER, current_role refleja el rol real del llamante.
-    IF current_role IN ('authenticated', 'anon') THEN
+    -- Bloquear a roles no privilegiados.
+    -- Con SECURITY INVOKER, current_role refleja el rol real del llamante:
+    --   - authenticated / anon: usuarios finales → bloqueados.
+    --   - service_role: tiene UPDATE de tabla por defecto en Supabase →
+    --     bloqueado aquí para forzar el uso de verify_flight_status().
+    --   - postgres: propietario de verify_flight_status() (SECURITY DEFINER);
+    --     cuando la función RPC ejecuta el UPDATE, current_role = 'postgres'
+    --     → permitido. Es la única vía de modificación autorizada.
+    --
+    -- POR QUÉ service_role ESTÁ BLOQUEADO DIRECTAMENTE:
+    --   En Supabase, GRANT ALL ON ALL TABLES ... TO service_role se aplica
+    --   por defecto. Eso incluye UPDATE a nivel de tabla, lo que hace que
+    --   REVOKE UPDATE (columna) FROM service_role sea un no-op: el privilegio
+    --   de tabla prevalece sobre el REVOKE de columna (permisos acumulativos).
+    --   El trigger es el único mecanismo fiable para bloquear este caso.
+    IF current_role IN ('authenticated', 'anon', 'service_role') THEN
         RAISE EXCEPTION
             'No tienes permiso para cambiar el estado de verificación. '
-            'Esta operación requiere autorización del backend.'
+            'Esta operación requiere autorización del backend a través de verify_flight_status().'
             USING ERRCODE = 'insufficient_privilege';
     END IF;
 
@@ -471,72 +485,124 @@ ALTER TABLE public.simulator_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.device_connections ENABLE ROW LEVEL SECURITY;
 
 -- ── profiles ────────────────────────────────────────────────────────────────
-CREATE POLICY "profiles_select_public"
-    ON public.profiles FOR SELECT
-    USING (profile_visibility = 'public');
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_select_public') THEN
+    CREATE POLICY "profiles_select_public"
+        ON public.profiles FOR SELECT
+        USING (profile_visibility = 'public');
+  END IF;
+END $$;
 
-CREATE POLICY "profiles_select_own"
-    ON public.profiles FOR SELECT
-    USING (auth.uid() = id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_select_own') THEN
+    CREATE POLICY "profiles_select_own"
+        ON public.profiles FOR SELECT
+        USING (auth.uid() = id);
+  END IF;
+END $$;
 
 -- UPDATE: created_at protegido por trigger; no hay restricciones de columna
 -- adicionales porque los campos de perfil son todos editables por el usuario.
-CREATE POLICY "profiles_update_own"
-    ON public.profiles FOR UPDATE
-    USING  (auth.uid() = id)
-    WITH CHECK (auth.uid() = id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_update_own') THEN
+    CREATE POLICY "profiles_update_own"
+        ON public.profiles FOR UPDATE
+        USING  (auth.uid() = id)
+        WITH CHECK (auth.uid() = id);
+  END IF;
+END $$;
 
 -- ── flights ──────────────────────────────────────────────────────────────────
-CREATE POLICY "flights_select_own"
-    ON public.flights FOR SELECT
-    USING (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='flights' AND policyname='flights_select_own') THEN
+    CREATE POLICY "flights_select_own"
+        ON public.flights FOR SELECT
+        USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Al insertar: verification_status debe ser 'unverified' (Capa 2).
-CREATE POLICY "flights_insert_own"
-    ON public.flights FOR INSERT
-    WITH CHECK (
-        auth.uid() = user_id
-        AND verification_status = 'unverified'
-    );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='flights' AND policyname='flights_insert_own') THEN
+    CREATE POLICY "flights_insert_own"
+        ON public.flights FOR INSERT
+        WITH CHECK (
+            auth.uid() = user_id
+            AND verification_status = 'unverified'
+        );
+  END IF;
+END $$;
 
 -- UPDATE: la restricción de columna (Capa 1) y el trigger (Capa 3) protegen
 -- verification_status. Esta política solo controla qué filas puede tocar.
-CREATE POLICY "flights_update_own"
-    ON public.flights FOR UPDATE
-    USING  (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='flights' AND policyname='flights_update_own') THEN
+    CREATE POLICY "flights_update_own"
+        ON public.flights FOR UPDATE
+        USING  (auth.uid() = user_id)
+        WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
-CREATE POLICY "flights_delete_own"
-    ON public.flights FOR DELETE
-    USING (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='flights' AND policyname='flights_delete_own') THEN
+    CREATE POLICY "flights_delete_own"
+        ON public.flights FOR DELETE
+        USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- ── simulator_sessions ───────────────────────────────────────────────────────
-CREATE POLICY "sim_sessions_select_own"
-    ON public.simulator_sessions FOR SELECT
-    USING (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='simulator_sessions' AND policyname='sim_sessions_select_own') THEN
+    CREATE POLICY "sim_sessions_select_own"
+        ON public.simulator_sessions FOR SELECT
+        USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
-CREATE POLICY "sim_sessions_insert_own"
-    ON public.simulator_sessions FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='simulator_sessions' AND policyname='sim_sessions_insert_own') THEN
+    CREATE POLICY "sim_sessions_insert_own"
+        ON public.simulator_sessions FOR INSERT
+        WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
-CREATE POLICY "sim_sessions_update_own"
-    ON public.simulator_sessions FOR UPDATE
-    USING  (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='simulator_sessions' AND policyname='sim_sessions_update_own') THEN
+    CREATE POLICY "sim_sessions_update_own"
+        ON public.simulator_sessions FOR UPDATE
+        USING  (auth.uid() = user_id)
+        WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- ── device_connections ───────────────────────────────────────────────────────
-CREATE POLICY "device_connections_select_own"
-    ON public.device_connections FOR SELECT
-    USING (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='device_connections' AND policyname='device_connections_select_own') THEN
+    CREATE POLICY "device_connections_select_own"
+        ON public.device_connections FOR SELECT
+        USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
-CREATE POLICY "device_connections_insert_own"
-    ON public.device_connections FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='device_connections' AND policyname='device_connections_insert_own') THEN
+    CREATE POLICY "device_connections_insert_own"
+        ON public.device_connections FOR INSERT
+        WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
-CREATE POLICY "device_connections_update_own"
-    ON public.device_connections FOR UPDATE
-    USING  (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='device_connections' AND policyname='device_connections_update_own') THEN
+    CREATE POLICY "device_connections_update_own"
+        ON public.device_connections FOR UPDATE
+        USING  (auth.uid() = user_id)
+        WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
 
 -- =============================================================================
@@ -593,12 +659,14 @@ GRANT UPDATE (
     notes
 ) ON public.flights TO authenticated;
 
--- Revocar UPDATE(verification_status) de service_role explícitamente.
--- Supabase puede aplicar GRANT ALL por defecto; este REVOKE garantiza que
--- incluso service_role deba usar verify_flight_status() y no pueda
--- modificar la columna directamente, independientemente de esos defaults.
--- La función verify_flight_status() (propietario postgres, superuser)
--- sí puede actualizar la columna sin necesitar este GRANT.
+-- Revocar UPDATE(verification_status) de service_role — NOTA IMPORTANTE:
+-- Este REVOKE es un no-op en Supabase porque service_role recibe
+-- GRANT ALL ON ALL TABLES ... por defecto, lo que incluye UPDATE a nivel
+-- de tabla. En PostgreSQL, los permisos son acumulativos: un REVOKE de
+-- columna no puede bloquear un GRANT de tabla del mismo rol. La protección
+-- real contra service_role está en el trigger SECURITY INVOKER, que
+-- comprueba current_role en tiempo de ejecución.
+-- Se mantiene como declaración de intención, pero no produce efecto real:
 REVOKE UPDATE (verification_status) ON public.flights FROM service_role;
 
 -- ── simulator_sessions ───────────────────────────────────────────────────────
@@ -727,6 +795,11 @@ END;
 $$;
 
 -- Solo service_role puede ejecutar esta función.
+-- El propietario se fija a postgres explícitamente para que SECURITY DEFINER
+-- eleve current_role a 'postgres' dentro de la función, valor que el trigger
+-- protect_verification_status() no bloquea. Sin esta línea, el propietario
+-- sería el rol que ejecutó la migración, que puede variar entre entornos.
+ALTER FUNCTION public.verify_flight_status(UUID, TEXT) OWNER TO postgres;
 REVOKE EXECUTE ON FUNCTION public.verify_flight_status(UUID, TEXT) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION public.verify_flight_status(UUID, TEXT) TO service_role;
 
