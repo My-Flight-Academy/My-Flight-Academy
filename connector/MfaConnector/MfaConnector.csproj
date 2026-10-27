@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MfaConnector</AssemblyName>
+    <RootNamespace>Mfa</RootNamespace>
+    <!-- SimConnect.dll nativa del SDK es de 64 bits -->
+    <PlatformTarget>x64</PlatformTarget>
+    <!-- Ajustes de bajo consumo: sin GC de servidor ni GC concurrente, sin ICU -->
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- SDK de MSFS 2024: el instalador define la variable de entorno MSFS2024_SDK.
+       Se puede forzar con: dotnet build -p:MsfsSdkRoot="C:\MSFS 2024 SDK" -->
+  <PropertyGroup>
+    <MsfsSdkRoot Condition="'$(MsfsSdkRoot)' == ''">$(MSFS2024_SDK)</MsfsSdkRoot>
+    <SimConnectManaged>$(MsfsSdkRoot)\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll</SimConnectManaged>
+    <SimConnectNative>$(MsfsSdkRoot)\SimConnect SDK\lib\SimConnect.dll</SimConnectNative>
+    <HasSimConnect Condition="'$(MsfsSdkRoot)' != '' And Exists('$(SimConnectManaged)')">true</HasSimConnect>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(HasSimConnect)' == 'true'">
+    <DefineConstants>$(DefineConstants);HAS_SIMCONNECT</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(HasSimConnect)' == 'true'">
+    <Reference Include="Microsoft.FlightSimulator.SimConnect">
+      <HintPath>$(SimConnectManaged)</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <None Include="$(SimConnectNative)" Condition="Exists('$(SimConnectNative)')"
+          Link="SimConnect.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="MfaSdkNotice" BeforeTargets="CoreCompile" Condition="'$(HasSimConnect)' != 'true'">
+    <Message Importance="high" Text="MfaConnector: SDK de MSFS 2024 no encontrado (MSFS2024_SDK). Se compila SIN SimConnect: solo funcionara el comando 'simulate'." />
+  </Target>
+
+  <Target Name="MfaNativeNotice" BeforeTargets="CoreCompile" Condition="'$(HasSimConnect)' == 'true' And !Exists('$(SimConnectNative)')">
+    <Warning Text="No se encontro SimConnect.dll nativa en '$(SimConnectNative)'. Copiala junto al ejecutable." />
+  </Target>
+
+</Project>
