@@ -1,0 +1,33 @@
+﻿/* My Flight Academy - Estilos de autenticacion y perfil (Fase 2) */
+
+/* Tabs */
+.au-tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid var(--ln)}
+.au-tab{background:none;border:0;color:var(--mu);padding:10px 16px;cursor:pointer;font:600 14px Manrope,system-ui,sans-serif;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
+.au-tab.on{color:var(--am);border-bottom-color:var(--am)}
+.au-tab:hover{color:var(--tx)}
+.au-tab:focus-visible{outline:2px solid var(--bl);outline-offset:2px;border-radius:2px}
+
+/* Mensajes de error y exito */
+.au-err{color:var(--rd);font-size:13.5px;margin-top:8px;min-height:20px;line-height:1.4}
+.au-ok{color:var(--gr);font-size:13.5px;margin-top:8px;line-height:1.4}
+
+/* Campos de formulario */
+.au-field{margin-bottom:14px}
+.au-field label{margin-bottom:5px}
+
+/* Enlace de texto para cambiar entre tabs */
+.au-link{background:none;border:0;color:var(--bl);cursor:pointer;font:inherit;font-size:inherit;padding:0;text-decoration:underline;text-underline-offset:2px}
+.au-link:hover{color:var(--am)}
+.au-link:focus-visible{outline:2px solid var(--bl);outline-offset:2px;border-radius:2px}
+
+/* Descripcion de campos */
+.au-hint{font-size:12px;color:var(--mu);margin-top:4px;line-height:1.4}
+
+/* Estado de carga */
+.au-loading{opacity:0.55;pointer-events:none;transition:opacity .2s}
+
+/* Responsive */
+@media(max-width:600px){
+  .au-tabs{flex-wrap:wrap}
+  .au-tab{flex:1;text-align:center}
+}

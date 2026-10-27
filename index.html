@@ -1,18 +1,21 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Flight Academy</title>
+<!-- Supabase JS SDK (UMD, sin modulos ES6) - debe cargarse antes que config.js y auth.js -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <link rel="stylesheet" href="css/background.css">
 <link rel="stylesheet" href="css/diario.css">
 <link rel="stylesheet" href="css/sim.css">
+<link rel="stylesheet" href="css/auth.css">
 </head>
 <body>
 <div id="app">
- <header id="tb"><button id="mb" aria-label="Abrir menú" aria-controls="nav" aria-expanded="false" onclick="openNav()"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/></svg></button><span class="tb-t">Flight Academy</span></header>
+ <header id="tb"><button id="mb" aria-label="Abrir men&#250;" aria-controls="nav" aria-expanded="false" onclick="openNav()"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/></svg></button><span class="tb-t">Flight Academy</span></header>
  <div id="nbk" onclick="closeNav()"></div>
  <nav id="nav" aria-label="Principal"></nav>
  <main id="main"></main>
@@ -24,17 +27,20 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect x="9" y="11" width="14" height="10" rx="2"/><path d="M13 16h.01M17 16h.01"/></svg>
     <span>My Flight Academy</span>
    </div>
-   <p class="ft-desc">Plataforma personal de estudio de aviación, en desarrollo continuo. El contenido es material educativo propio y no constituye una fuente aeronáutica oficial.</p>
+   <p class="ft-desc">Plataforma personal de estudio de aviaci&#243;n, en desarrollo continuo. El contenido es material educativo propio y no constituye una fuente aeron&#225;utica oficial.</p>
   </div>
   <div class="ft-divider"></div>
   <div class="ft-bottom">
-   <span class="ft-copy">Diseñado y desarrollado por <a href="https://oscardavidrodriguezporras.github.io/portafolio/" target="_blank" rel="noopener noreferrer" class="ft-link">Oscar David Rodriguez Porras</a></span>
-   <span class="ft-dot" aria-hidden="true">·</span>
-   <span class="ft-copy ft-right">Hecho con curiosidad y muchas horas de estudio ✈️</span>
+   <span class="ft-copy">Dise&#241;ado y desarrollado por <a href="https://oscardavidrodriguezporras.github.io/portafolio/" target="_blank" rel="noopener noreferrer" class="ft-link">Oscar David Rodriguez Porras</a></span>
+   <span class="ft-dot" aria-hidden="true">&#183;</span>
+   <span class="ft-copy ft-right">Hecho con curiosidad y muchas horas de estudio &#9992;&#65039;</span>
   </div>
  </div>
 </footer>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/app.js"></script>
+<script src="js/profile.js"></script>
 <script src="js/diario.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/lessons/helpers.js"></script>
