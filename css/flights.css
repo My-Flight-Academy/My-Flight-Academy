@@ -1,0 +1,23 @@
+/* My Flight Academy - Estilos de vuelos en la nube y rankings (Fase 3) */
+
+.fl-grid{display:grid;gap:0 14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.fl-full{grid-column:1/-1}
+.fl-dur{display:flex;gap:8px;align-items:center;color:var(--mu)}
+.fl-dur input{width:84px}
+textarea{resize:vertical;min-height:70px}
+
+/* Etiquetas de estado de verificacion (extienden .tag) */
+.tag.fl-gr{color:var(--gr);border-color:var(--gr)}
+.tag.fl-am{color:var(--am);border-color:var(--am)}
+.tag.fl-rd{color:var(--rd);border-color:var(--rd)}
+
+/* Acciones de fila */
+.fl-act{display:flex;gap:6px;flex-wrap:wrap}
+.fl-act .btn{padding:5px 10px;font-size:13px;font-weight:600}
+
+/* Rankings */
+.fl-pos{font:700 14px 'JetBrains Mono',monospace;color:var(--am);width:48px}
+tr.fl-me td{background:#ffb02014}
+
+/* Notas desplegables en la tabla de vuelos */
+tr.fl-notes td{white-space:pre-wrap;background:var(--pnl2);line-height:1.5}

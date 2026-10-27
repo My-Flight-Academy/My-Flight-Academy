@@ -17,8 +17,10 @@ const ICONS={ // Iconos lineales estilo Lucide (viewBox 24, trazo uniforme)
  dict:'<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="m8 13 4-7 4 7"/><path d="M9.1 11h5.7"/>',
  pclose:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>',
   popen:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>',
- user:'<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>'
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>',
+ trophy:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>'
 };
+
 
 const ic=k=>`<svg class="ic" viewBox="0 0 24 24">${ICONS[k]}</svg>`;
 const NAV_GROUPS=[ // Menú lateral por categorías: [categoría, [[vista, texto, icono], ...]]
@@ -28,7 +30,7 @@ const NAV_GROUPS=[ // Menú lateral por categorías: [categoría, [[vista, texto
  ['AEROPUERTOS Y CARTAS',[['apt','Aeropuertos','apt'],['car','Cartas','car']]],
  ['HERRAMIENTAS',[['sim','Simulador','plane'],['log','Diario de vuelo','log']]],
  ['REFERENCIA',[['lib','Biblioteca','lib'],['dict','Diccionario','dict']]],
- ['CUENTA',[['auth','Mi cuenta','user']]]
+  ['CUENTA',[['auth','Mi cuenta','user'],['flights','Vuelos en la nube','plane'],['rank','Rankings','trophy']]]
 ];
 
 const PHASES=[
