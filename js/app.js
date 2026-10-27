@@ -16,8 +16,10 @@ const ICONS={ // Iconos lineales estilo Lucide (viewBox 24, trazo uniforme)
  plane:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
  dict:'<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="m8 13 4-7 4 7"/><path d="M9.1 11h5.7"/>',
  pclose:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>',
- popen:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>'
+  popen:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>',
+ user:'<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>'
 };
+
 const ic=k=>`<svg class="ic" viewBox="0 0 24 24">${ICONS[k]}</svg>`;
 const NAV_GROUPS=[ // Menú lateral por categorías: [categoría, [[vista, texto, icono], ...]]
  ['PRINCIPAL',[['dash','Dashboard','dash']]],
@@ -25,7 +27,8 @@ const NAV_GROUPS=[ // Menú lateral por categorías: [categoría, [[vista, texto
  ['OPERACIONES',[['navi','Navegación','navi'],['met','Meteorología','met'],['comm','Comunicaciones','comm']]],
  ['AEROPUERTOS Y CARTAS',[['apt','Aeropuertos','apt'],['car','Cartas','car']]],
  ['HERRAMIENTAS',[['sim','Simulador','plane'],['log','Diario de vuelo','log']]],
- ['REFERENCIA',[['lib','Biblioteca','lib'],['dict','Diccionario','dict']]]
+ ['REFERENCIA',[['lib','Biblioteca','lib'],['dict','Diccionario','dict']]],
+ ['CUENTA',[['auth','Mi cuenta','user']]]
 ];
 
 const PHASES=[
@@ -666,7 +669,7 @@ function render(){
  if(view==='exam'&&examState&&examState.i>=examQ().length&&!examState.saved){examState.saved=1;S.exams.push({ph:examState.ph,d:new Date().toLocaleDateString('es-CO'),iso:today(),ts:Date.now(),s:examState.s,n:examQ().length,miss:[...new Set(examState.miss)]});save()}
 $('#nav').innerHTML=`<div class="brand">${ic('plane')}<span class="lb">Flight Academy</span></div>`+NAV_GROUPS.map(g=>`<div class="nG" role="group" aria-label="${g[0]}"><div class="ng">${g[0]}</div>`+g[1].map(n=>`<button class="${view===n[0]?'on':''}" aria-label="${n[1]}"${view===n[0]?' aria-current="page"':''} onclick="closeNav();aptSel=null;go('${n[0]}')">${ic(n[2])}<span class="lb">${n[1]}</span></button>`).join('')+`</div>`).join('')+`<button id="col" aria-label="${$('#nav').classList.contains('c')?'Expandir menú':'Contraer menú'}" onclick="toggleNav()">${ic('pclose')}${ic('popen')}<span class="lb">Contraer menú</span></button>`;
  $('#main').innerHTML=`<section class="sec">${V[view]()}</section>`;
- if(view==='navi')calcW();if(view==='met')decM();if(view==='lib'||view==='car')libInit()}
+  if(view==='navi')calcW();if(view==='met')decM();if(view==='lib'||view==='car')libInit();if(typeof authPostRender==='function')authPostRender()}
  // ---------- Menú lateral: contraer (se recuerda), panel en móvil y tooltips ----------
 function toggleNav(){const n=$('#nav'),c=n.classList.toggle('c');try{localStorage.setItem('fa_nav',c?'1':'0')}catch(e){}$('#col').setAttribute('aria-label',c?'Expandir menú':'Contraer menú');tip()}
 function openNav(){$('#nav').classList.add('open');$('#nbk').classList.add('show');$('#mb').setAttribute('aria-expanded','true')}

@@ -216,7 +216,18 @@
         '<p class="sub">Necesitas iniciar sesion para ver tu perfil.</p>' +
         '<button class="btn" onclick="go(\'auth\')">Ir a Mi cuenta</button>';
     }
-    var profile = window._authProfile;
+        var profile = window._authProfile;
+    if (!profile && window._authProfileErr) {
+      return '<h1>Perfil</h1>' +
+        '<p class="sub">No se pudo cargar tu perfil.</p>' +
+        '<div class="card" style="max-width:560px">' +
+          '<p class="au-err">Revisa tu conexion e intentalo de nuevo.</p>' +
+          '<div class="row" style="margin-top:14px">' +
+            '<button class="btn" onclick="window._authProfileErr=false;render()">Reintentar</button>' +
+            '<button class="btn g" onclick="go(\'auth\')">Volver</button>' +
+          '</div>' +
+        '</div>';
+    }
     if (!profile) {
       return '<h1>Perfil</h1>' +
         '<p class="sub">Cargando datos del perfil\u2026</p>' +
@@ -290,7 +301,7 @@
       }, 60);
     }
     // Cargar perfil si estamos en la vista de perfil y no se ha cargado aun
-    if (view === 'profile' && window._authSession && !window._authProfile) {
+    if (view === 'profile' && window._authSession && !window._authProfile && !window._authProfileErr) {
       authGetProfile().then(function() {
         if (typeof render === 'function') render();
       });

@@ -48,6 +48,8 @@
       return 'Demasiados intentos. Espera un momento e intentalo de nuevo.';
     if (msg.indexOf('not authorized') !== -1)
       return 'Este correo no esta autorizado para registrarse.';
+    if (msg.indexOf('profiles_username_key') !== -1 || msg.indexOf('duplicate key') !== -1)
+      return 'Ese nombre de usuario ya esta en uso. Elige otro.';
     return msg;
   }
   window.traducirError = traducirError;
@@ -63,9 +65,11 @@
       .eq('id', uid)
       .single();
     if (result.error) {
-      console.error('[auth] Error cargando perfil:', result.error.message);
+            console.error('[auth] Error cargando perfil:', result.error.message);
+      window._authProfileErr = true;
       return null;
     }
+    window._authProfileErr = false;
     window._authProfile = result.data;
     return result.data;
   }
@@ -106,7 +110,12 @@
   async function authRegister(email, pass) {
     var sb = getClient();
     if (!sb) return { error: 'Supabase no esta configurado. Ver js/config.js.' };
-    var result = await sb.auth.signUp({ email: email, password: pass });
+        var result = await sb.auth.signUp({ email: email, password: pass });
+    // Correo ya registrado y confirmado: Supabase no da error, devuelve identities vacio.
+    if (!result.error && result.data && result.data.user &&
+        result.data.user.identities && result.data.user.identities.length === 0) {
+      return { data: null, error: 'Ya existe una cuenta con ese correo. Inicia sesion.' };
+    }
     return { data: result.data, error: result.error ? traducirError(result.error.message) : null };
   }
   window.authRegister = authRegister;
@@ -134,15 +143,24 @@
   function initAuthListener() {
     var sb = getClient();
     if (!sb || window._authSub) return;
-    var subscription = sb.auth.onAuthStateChange(async function(event, session) {
+        var subscription = sb.auth.onAuthStateChange(function(event, session) {
+      var prevId = window._authSession && window._authSession.user ? window._authSession.user.id : null;
+      var newId  = session && session.user ? session.user.id : null;
       window._authSession = session;
-      window._authProfile = null; // forzar recarga del perfil
+      // Renovar el token o re-emitir SIGNED_IN para el mismo usuario no debe recargar
+      // la UI (evita perder lo que se esta escribiendo en un formulario).
+      if (event === 'TOKEN_REFRESHED' || (newId && newId === prevId && window._authProfile)) return;
+      window._authProfile = null;
+      window._authProfileErr = false;
       if (session) {
-        authGetProfile().then(function() {
-          if (typeof render === 'function') render();
-        });
-      } else {
-        if (typeof render === 'function') render();
+        // setTimeout evita llamar a Supabase dentro del callback (posible bloqueo en supabase-js).
+        setTimeout(function() {
+          authGetProfile().then(function() {
+            if (typeof render === 'function') render();
+          });
+        }, 0);
+      } else if (typeof render === 'function') {
+        render();
       }
     });
     // La API v2 devuelve { data: { subscription } }
