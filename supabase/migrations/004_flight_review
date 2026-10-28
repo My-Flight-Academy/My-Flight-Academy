@@ -1,0 +1,230 @@
+-- =============================================================================
+-- My Flight Academy - Migración 004: verificación automática de vuelos
+-- =============================================================================
+-- Requiere 001, 002 y 003 (con el REVOKE UPDATE de tabla ya aplicado).
+-- Aplicar primero en el proyecto de PRUEBAS. Idempotente.
+--
+-- Qué hace:
+--   Al insertar un vuelo del conector (source='connector', flight_status='completed')
+--   se evalúan reglas de plausibilidad:
+--     * cumple todas  -> verified
+--     * falla alguna  -> pending_review (cola de revisión manual, solo por SQL)
+--   Vuelos manuales y vuelos interrumpidos NO se evalúan: quedan 'unverified'
+--   (no cuentan en rankings, que exigen completed + verified).
+--
+-- Seguridad:
+--   * No cambia RLS, GRANT ni triggers existentes.
+--   * Reutiliza verify_flight_status(): única vía de escritura de verification_status.
+--   * Las 3 funciones nuevas son SECURITY DEFINER (propietario postgres) y NO son
+--     ejecutables por anon/authenticated. El usuario no puede forzar ni repetir la
+--     evaluación, ni cambiar su estado.
+--   * LÍMITE: connector_meta lo escribe el cliente. Estas reglas frenan el engaño
+--     casual, no a alguien que fabrique peticiones a mano. Verificar el origen
+--     del dispositivo es otra etapa.
+--   * El trigger nunca debe romper el INSERT: cualquier error en la evaluación se
+--     captura y el vuelo queda 'unverified' (WARNING en el log).
+--
+-- Reglas (todas deben cumplirse para verified):
+--   completed, dep_icao y arr_icao presentes, distancia presente,
+--   duración 300..72000 s, fin no futuro (+5 min de margen),
+--   connector_meta con position_jumps = 0, paused_s <= 25 % de la duración,
+--   max_sim_rate > 0, velocidad media distancia/(duración*max_sim_rate) <= 600 kt,
+--   sin solape con otro vuelo del mismo usuario (completed/interrupted, no rechazado).
+-- =============================================================================
+
+
+-- ── 1. Motivos por los que un vuelo NO se auto-verifica (vacío = cumple todo) ──
+CREATE OR REPLACE FUNCTION public.flight_auto_review_reasons(p_flight_id UUID)
+RETURNS TEXT[]
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    f        public.flights%ROWTYPE;
+    m        JSONB;
+    r        TEXT[] := ARRAY[]::TEXT[];
+    v_rate   NUMERIC;
+    v_paused NUMERIC;
+BEGIN
+    SELECT * INTO f FROM public.flights WHERE id = p_flight_id;
+    IF NOT FOUND THEN
+        RETURN ARRAY['vuelo_no_encontrado'];
+    END IF;
+    m := f.connector_meta;
+
+    IF f.source <> 'connector'       THEN r := array_append(r, 'origen_no_conector'); END IF;
+    IF f.flight_status <> 'completed' THEN r := array_append(r, 'no_completado');     END IF;
+    IF f.dep_icao IS NULL            THEN r := array_append(r, 'sin_icao_salida');    END IF;
+    IF f.arr_icao IS NULL            THEN r := array_append(r, 'sin_icao_llegada');   END IF;
+    IF f.distance_nm IS NULL         THEN r := array_append(r, 'sin_distancia');      END IF;
+
+    IF f.duration_seconds IS NULL OR f.duration_seconds NOT BETWEEN 300 AND 72000 THEN
+        r := array_append(r, 'duracion_fuera_de_rango');
+    END IF;
+
+    IF f.started_at IS NULL OR f.ended_at IS NULL THEN
+        r := array_append(r, 'sin_fechas');
+    ELSIF f.ended_at > now() + interval '5 minutes' THEN
+        r := array_append(r, 'fecha_futura');
+    END IF;
+
+    -- Saltos de posición: debe existir y ser 0.
+    IF jsonb_typeof(m -> 'position_jumps') IS DISTINCT FROM 'number' THEN
+        r := array_append(r, 'meta_sin_saltos');
+    ELSIF (m ->> 'position_jumps')::NUMERIC <> 0 THEN
+        r := array_append(r, 'saltos_de_posicion');
+    END IF;
+
+    -- Pausas: deben existir y no superar el 25 % de la duración.
+    IF jsonb_typeof(m -> 'paused_s') IS DISTINCT FROM 'number' THEN
+        r := array_append(r, 'meta_sin_pausas');
+    ELSE
+        v_paused := (m ->> 'paused_s')::NUMERIC;
+        IF f.duration_seconds IS NOT NULL AND v_paused > 0.25 * f.duration_seconds THEN
+            r := array_append(r, 'pausa_excesiva');
+        END IF;
+    END IF;
+
+    -- Velocidad de simulación y velocidad media plausible.
+    IF jsonb_typeof(m -> 'max_sim_rate') IS DISTINCT FROM 'number' THEN
+        r := array_append(r, 'meta_sin_velocidad_sim');
+    ELSE
+        v_rate := (m ->> 'max_sim_rate')::NUMERIC;
+        IF v_rate <= 0 THEN
+            r := array_append(r, 'meta_sin_velocidad_sim');
+        ELSIF f.distance_nm IS NOT NULL AND f.duration_seconds IS NOT NULL THEN
+            IF f.duration_seconds > 0
+               AND f.distance_nm / (f.duration_seconds * v_rate / 3600.0) > 600 THEN
+                r := array_append(r, 'velocidad_media_irreal');
+            END IF;
+        END IF;
+    END IF;
+
+    -- Solape con otro vuelo del mismo usuario.
+    IF f.started_at IS NOT NULL AND f.ended_at IS NOT NULL AND EXISTS (
+        SELECT 1
+        FROM public.flights g
+        WHERE g.user_id = f.user_id
+          AND g.id <> f.id
+          AND g.started_at IS NOT NULL
+          AND g.ended_at   IS NOT NULL
+          AND g.flight_status IN ('completed', 'interrupted')
+          AND g.verification_status <> 'rejected'
+          AND tstzrange(g.started_at, g.ended_at) && tstzrange(f.started_at, f.ended_at)
+    ) THEN
+        r := array_append(r, 'solapado');
+    END IF;
+
+    RETURN r;
+END;
+$$;
+
+
+-- ── 2. Evalúa y aplica el resultado vía verify_flight_status() ───────────────
+CREATE OR REPLACE FUNCTION public.auto_review_flight(p_flight_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    f        public.flights%ROWTYPE;
+    r        TEXT[];
+    v_target TEXT;
+    v_res    JSONB;
+BEGIN
+    SELECT * INTO f FROM public.flights WHERE id = p_flight_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'Vuelo no encontrado.');
+    END IF;
+
+    IF f.source <> 'connector' OR f.flight_status <> 'completed' THEN
+        RETURN jsonb_build_object('ok', false,
+            'error', 'No aplica: solo vuelos completados del conector.');
+    END IF;
+
+    IF f.verification_status <> 'unverified' THEN
+        RETURN jsonb_build_object('ok', false,
+            'error', 'El vuelo ya fue procesado: ' || f.verification_status);
+    END IF;
+
+    r        := public.flight_auto_review_reasons(p_flight_id);
+    v_target := CASE WHEN cardinality(r) = 0 THEN 'verified' ELSE 'pending_review' END;
+    v_res    := public.verify_flight_status(p_flight_id, v_target);
+
+    RETURN v_res || jsonb_build_object('reasons', to_jsonb(r));
+END;
+$$;
+
+
+-- ── 3. Trigger AFTER INSERT: nunca rompe el INSERT del conector ──────────────
+CREATE OR REPLACE FUNCTION public.flights_auto_review_trigger()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    BEGIN
+        PERFORM public.auto_review_flight(NEW.id);
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING 'auto_review_flight falló para %: % %', NEW.id, SQLSTATE, SQLERRM;
+    END;
+    RETURN NULL;
+END;
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger
+        WHERE tgname = 'trg_flights_auto_review'
+          AND tgrelid = 'public.flights'::regclass
+    ) THEN
+        CREATE TRIGGER trg_flights_auto_review
+        AFTER INSERT ON public.flights
+        FOR EACH ROW
+        WHEN (NEW.source = 'connector'
+              AND NEW.flight_status = 'completed'
+              AND NEW.verification_status = 'unverified')
+        EXECUTE FUNCTION public.flights_auto_review_trigger();
+    END IF;
+END $$;
+
+
+-- ── 4. Propietario y permisos ────────────────────────────────────────────────
+-- Supabase concede EXECUTE a anon y authenticated por defecto en funciones nuevas
+-- de public: se revoca de forma explícita.
+ALTER FUNCTION public.flight_auto_review_reasons(UUID) OWNER TO postgres;
+ALTER FUNCTION public.auto_review_flight(UUID)         OWNER TO postgres;
+ALTER FUNCTION public.flights_auto_review_trigger()    OWNER TO postgres;
+
+REVOKE EXECUTE ON FUNCTION public.flight_auto_review_reasons(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.auto_review_flight(UUID)         FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.flights_auto_review_trigger()    FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.flight_auto_review_reasons(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION public.auto_review_flight(UUID)         TO service_role;
+
+COMMENT ON FUNCTION public.auto_review_flight(UUID) IS
+    'Verificación automática de un vuelo del conector: verified si cumple las reglas, '
+    'pending_review si no. Usa verify_flight_status(). Solo service_role/postgres.';
+
+
+-- =============================================================================
+-- USO MANUAL (SQL Editor, rol postgres). Consultas comentadas.
+-- =============================================================================
+-- Evaluar vuelos del conector ya guardados (el trigger solo actúa en INSERT nuevos):
+--   SELECT id, public.auto_review_flight(id)
+--     FROM public.flights
+--    WHERE source = 'connector' AND flight_status = 'completed'
+--      AND verification_status = 'unverified';
+--
+-- Cola de revisión manual, con el motivo:
+--   SELECT id, started_at, dep_icao, arr_icao, public.flight_auto_review_reasons(id) AS motivos
+--     FROM public.flights WHERE verification_status = 'pending_review';
+--
+-- Resolver un caso de la cola:
+--   SELECT public.verify_flight_status('<id>', 'verified');   -- o 'rejected'

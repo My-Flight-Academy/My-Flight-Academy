@@ -43,7 +43,7 @@ BEGIN
 
     -- 3. Estado por defecto
     SELECT verification_status INTO st FROM public.flights WHERE session_uuid = s1;
-    INSERT INTO _r VALUES (3, 'verification_status queda en unverified', st = 'unverified', coalesce(st, 'NULL'));
+    INSERT INTO _r VALUES (3, 'vuelo del conector con metadatos incompletos no se auto-verifica', st = 'pending_review', coalesce(st, 'NULL'));
 
     -- 4. Insertar como 'verified' debe fallar (RLS)
     BEGIN INSERT INTO public.flights (user_id, session_uuid, verification_status) VALUES (me, gen_random_uuid(), 'verified'); ok := false; code := 'sin error';

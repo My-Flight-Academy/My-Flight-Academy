@@ -49,8 +49,17 @@ COMMENT ON COLUMN public.flights.source IS
 COMMENT ON COLUMN public.flights.connector_meta IS
     'Calidad de datos del conector: campos no detectados, pausas, saltos de posición. Informativo; máx. 2000 caracteres.';
 
--- Sin GRANT UPDATE a propósito (ver cabecera). INSERT ya está concedido a nivel
--- de tabla en 001, por lo que el conector puede escribir ambas columnas al crear.
+-- UPDATE por columna: quitar el UPDATE de TABLA que Supabase concede por defecto
+-- (default privileges) y reconceder solo las columnas editables. Sin esto, el
+-- GRANT por columna no restringe nada, porque el privilegio de tabla lo cubre todo.
+REVOKE UPDATE ON public.flights FROM anon, authenticated;
+
+GRANT UPDATE (
+    dep_icao, arr_icao, alt_icao, aircraft,
+    started_at, ended_at, duration_seconds, distance_nm,
+    max_altitude_ft, landing_vs_fpm, flight_status, notes,
+    simulator
+) ON public.flights TO authenticated;
 
 -- =============================================================================
 -- VERIFICACIÓN (consultas comentadas, ejecutar tras aplicar)

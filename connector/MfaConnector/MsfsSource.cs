@@ -147,7 +147,7 @@ public sealed class MsfsSource : IAirportResolver
         {
             var a = (SIMCONNECT_DATA_FACILITY_AIRPORT)o;
             double dist = Geo.Nm(p.Lat, p.Lon, a.Latitude, a.Longitude);
-            if (dist < bestD) { bestD = dist; best = a.Icao; }
+            if (dist < bestD) { bestD = dist; best = a.Ident; }
         }
         if (d.dwEntryNumber >= d.dwOutOf - 1) { _pend = null; p.Done(best, bestD); }   // último paquete
         else _pend = (p.Lat, p.Lon, p.Done, best, bestD);
