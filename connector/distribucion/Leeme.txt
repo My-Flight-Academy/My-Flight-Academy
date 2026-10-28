@@ -1,0 +1,36 @@
+MY FLIGHT ACADEMY - CONECTOR PARA MSFS 2024
+===========================================
+
+Qué hace: detecta tus vuelos en Microsoft Flight Simulator 2024 y los envía
+solo a tu cuenta de My Flight Academy. No hace falta instalar nada más.
+
+Necesitas
+- Windows 10/11 de 64 bits, en el mismo PC donde corre MSFS 2024.
+- Una cuenta en la página de My Flight Academy (confirma tu correo si te lo pide).
+
+Primera vez (una sola vez)
+1. Descomprime TODA la carpeta (no ejecutes los archivos desde dentro del ZIP).
+2. Doble clic en "1-iniciar-sesion.bat" y escribe el email y la contraseña
+   de tu cuenta de la página. Debe decir "Sesión iniciada".
+   Si Windows muestra "Windows protegió su PC", pulsa "Más información" y
+   "Ejecutar de todas formas": el programa no está firmado.
+
+Cada vez que vueles
+1. Doble clic en "2-iniciar-conector.bat" y deja la ventana abierta.
+   Puede decir "Esperando a MSFS 2024..." hasta que abras el simulador.
+2. Vuela: despega desde un aeropuerto (cerca de él), mantente en el aire
+   al menos 1 minuto, aterriza y detente.
+3. En la ventana verás "Despegue detectado", "Toque de pista detectado",
+   "Vuelo completado" y "Vuelo sincronizado".
+4. Entra a la página con tu cuenta: tu vuelo aparece en tus vuelos.
+   Si pasa las comprobaciones automáticas queda verificado; si no, queda
+   "En revisión".
+
+Si algo falla
+- No aparece el vuelo: ejecuta "MfaConnector.exe status" desde esta carpeta
+  y revisa que haya sesión guardada. Los vuelos pendientes se envían solos
+  cuando haya sesión e internet.
+- Cambiaste de cuenta o de contraseña: vuelve a ejecutar el paso 2 de
+  "Primera vez".
+- Los vuelos acelerados, con saltos de posición o muy irreales pueden
+  quedar "En revisión".

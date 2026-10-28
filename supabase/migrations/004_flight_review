@@ -29,6 +29,7 @@
 --   duración 300..72000 s, fin no futuro (+5 min de margen),
 --   connector_meta con position_jumps = 0, paused_s <= 25 % de la duración,
 --   max_sim_rate > 0, velocidad media distancia/(duración*max_sim_rate) <= 600 kt,
+--   sim_version distinta de 'SIMULATED' (vuelos de prueba del comando simulate),
 --   sin solape con otro vuelo del mismo usuario (completed/interrupted, no rechazado).
 -- =============================================================================
 
@@ -100,6 +101,11 @@ BEGIN
                 r := array_append(r, 'velocidad_media_irreal');
             END IF;
         END IF;
+    END IF;
+
+    -- Vuelos de prueba del comando 'simulate' (el conector los marca sim_version='SIMULATED').
+    IF upper(m ->> 'sim_version') = 'SIMULATED' THEN
+        r := array_append(r, 'vuelo_simulado');
     END IF;
 
     -- Solape con otro vuelo del mismo usuario.

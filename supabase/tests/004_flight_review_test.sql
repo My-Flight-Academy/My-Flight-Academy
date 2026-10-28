@@ -3,7 +3,7 @@
 -- del proyecto de PRUEBAS, después de aplicar 001, 002, 003 (con su REVOKE) y 004.
 -- No deja datos: todo ocurre dentro de una transacción que termina en ROLLBACK.
 -- Requiere al menos 1 usuario registrado (con perfil) en auth.users.
--- Resultado esperado: una tabla con TODAS las filas passed = true.
+-- Resultado esperado: 21 filas, TODAS con passed = true.
 -- Usa fechas de hace ~2000 días para no solaparse con tus vuelos reales.
 -- =============================================================================
 BEGIN;
@@ -19,15 +19,15 @@ DO $$
 DECLARE
     me    uuid := auth.uid();
     b     timestamptz := now() - interval '2000 days';
-    valid jsonb := '{"v":1,"paused_s":0,"touchdowns":1,"undetected":[],"max_sim_rate":1,"position_jumps":0}'::jsonb;
+    valid jsonb := '{"v":1,"paused_s":0,"touchdowns":1,"undetected":[],"max_sim_rate":1,"position_jumps":0,"sim_version":"12.2.282174.999"}'::jsonb;
     s1 uuid := gen_random_uuid(); s2 uuid := gen_random_uuid(); s3 uuid := gen_random_uuid();
     s4 uuid := gen_random_uuid(); s5 uuid := gen_random_uuid(); s6 uuid := gen_random_uuid();
     s7 uuid := gen_random_uuid(); s8 uuid := gen_random_uuid(); s9 uuid := gen_random_uuid();
-    s10 uuid := gen_random_uuid();
+    s10 uuid := gen_random_uuid(); s11 uuid := gen_random_uuid();
     st text; cnt int; ok boolean; code text;
 BEGIN
     IF me IS NULL THEN RAISE EXCEPTION 'No hay usuarios en auth.users: crea uno primero.'; END IF;
-    INSERT INTO _s VALUES (1,s1),(2,s2),(3,s3),(4,s4),(5,s5),(6,s6),(7,s7),(8,s8),(9,s9),(10,s10);
+    INSERT INTO _s VALUES (1,s1),(2,s2),(3,s3),(4,s4),(5,s5),(6,s6),(7,s7),(8,s8),(9,s9),(10,s10),(11,s11);
 
     -- Preparación: vuelos insertados como los inserta el conector (usuario autenticado).
     BEGIN
@@ -61,6 +61,9 @@ BEGIN
         -- 10 vuelo acelerado a 4x, con los valores de tu vuelo real MGGT -> MMUN
         INSERT INTO public.flights (user_id, session_uuid, dep_icao, arr_icao, started_at, ended_at, duration_seconds, distance_nm, flight_status, source, connector_meta)
         VALUES (me, s10, 'MGGT', 'MMUN', b + interval '70 hours', b + interval '70 hours' + interval '5750 seconds', 5750, 763.98, 'completed', 'connector', jsonb_set(valid, '{max_sim_rate}', '4'));
+        -- 11 vuelo del comando simulate (sim_version = SIMULATED), por lo demás válido
+        INSERT INTO public.flights (user_id, session_uuid, dep_icao, arr_icao, started_at, ended_at, duration_seconds, distance_nm, flight_status, source, connector_meta)
+        VALUES (me, s11, 'SKBG', 'SKBO', b + interval '80 hours', b + interval '81 hours', 3600, 300, 'completed', 'connector', jsonb_set(valid, '{sim_version}', '"SIMULATED"'));
     EXCEPTION WHEN OTHERS THEN
         INSERT INTO _r VALUES (0, 'Preparación de datos', false, SQLSTATE || ' ' || SQLERRM);
     END;
@@ -95,6 +98,9 @@ BEGIN
 
     SELECT verification_status INTO st FROM public.flights WHERE session_uuid = s10;
     INSERT INTO _r VALUES (10, 'Vuelo acelerado 4x (datos reales) queda verified', st = 'verified', coalesce(st, 'NULL'));
+
+    SELECT verification_status INTO st FROM public.flights WHERE session_uuid = s11;
+    INSERT INTO _r VALUES (20, 'Vuelo SIMULATED del comando simulate -> pending_review', st = 'pending_review', coalesce(st, 'NULL'));
 
     -- 11. Reenvío del mismo vuelo: no duplica ni cambia el estado
     BEGIN
@@ -133,17 +139,21 @@ RESET ROLE;
 -- Comprobaciones como postgres (SQL Editor): motivos y no reevaluar.
 DO $$
 DECLARE
-    id2 uuid; id6 uuid; id1 uuid; r2 text[]; r6 text[]; res jsonb;
+    id2 uuid; id6 uuid; id1 uuid; id11 uuid; r2 text[]; r6 text[]; r11 text[]; res jsonb;
 BEGIN
     SELECT f.id INTO id1 FROM public.flights f JOIN _s ON _s.id = f.session_uuid WHERE _s.n = 1;
     SELECT f.id INTO id2 FROM public.flights f JOIN _s ON _s.id = f.session_uuid WHERE _s.n = 2;
     SELECT f.id INTO id6 FROM public.flights f JOIN _s ON _s.id = f.session_uuid WHERE _s.n = 6;
+    SELECT f.id INTO id11 FROM public.flights f JOIN _s ON _s.id = f.session_uuid WHERE _s.n = 11;
 
     r2 := public.flight_auto_review_reasons(id2);
     INSERT INTO _r VALUES (17, 'Motivo del vuelo con saltos: saltos_de_posicion', 'saltos_de_posicion' = ANY (r2), array_to_string(r2, ','));
 
     r6 := public.flight_auto_review_reasons(id6);
     INSERT INTO _r VALUES (18, 'Motivo del vuelo solapado: solapado', 'solapado' = ANY (r6), array_to_string(r6, ','));
+
+    r11 := public.flight_auto_review_reasons(id11);
+    INSERT INTO _r VALUES (21, 'Motivo del vuelo simulado: vuelo_simulado', 'vuelo_simulado' = ANY (r11), array_to_string(r11, ','));
 
     res := public.auto_review_flight(id1);
     INSERT INTO _r VALUES (19, 'No reevalúa un vuelo ya procesado', (res ->> 'ok') = 'false', coalesce(res ->> 'error', 'NULL'));
