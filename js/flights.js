@@ -361,6 +361,21 @@
       'Los vuelos registrados a mano quedan sin verificar y no puntúan, por lo que no se pueden usar para manipular la clasificación.</div>';
   };
 
+  // Resumen para el dashboard de Simuladores (solo lectura de FL; no toca Supabase por su cuenta).
+  window.flStats = function () {
+    sync();
+    if (!curUid()) return { auth: false };
+    if (FL.rows === null) return { auth: true, loaded: false, err: FL.err };
+    var s = { auth: true, loaded: true, total: FL.rows.length, vsec: 0, verified: 0, pending: 0, avgVs: null }, n = 0, sum = 0;
+    FL.rows.forEach(function (r) {
+      if (r.verification_status === 'verified') { s.verified++; if (r.flight_status === 'completed' && r.duration_seconds) s.vsec += r.duration_seconds; }
+      if (r.verification_status === 'pending_review') s.pending++;
+      if (r.flight_status === 'completed' && r.landing_vs_fpm != null) { n++; sum += Math.abs(r.landing_vs_fpm); }
+    });
+    if (n) s.avgVs = Math.round(sum / n);
+    return s;
+  };
+
   // ── Carga de datos tras cada render ───────────────────────────────────────
   // Encadena el hook de profile.js (authPostRender) sin modificarlo.
   var prevPost = window.authPostRender;
@@ -369,6 +384,7 @@
     if (typeof view === 'undefined') return;
     sync();
     if (!syncUid) return;
+    if (view === 'dash' && typeof zone !== 'undefined' && zone === 'sim' && FL.rows === null && !FL.loading && !FL.err) flLoad();
     if (view === 'flights' && FL.rows === null && !FL.loading && !FL.err) flLoad();
     if (view === 'rank' && RK.data[RK.kind] === null && !RK.loading && !RK.err) rkLoad();
   };

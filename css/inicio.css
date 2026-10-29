@@ -1,0 +1,44 @@
+/* My Flight Academy - Pantalla de inicio (selector de zona) */
+
+/* El inicio no usa el menú lateral (ni en escritorio ni en móvil) */
+body.is-home #nav,body.is-home #nbk,body.is-home #tb{display:none!important}
+
+/* ── Barra superior propia ── */
+.zh-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 22px}
+.zh-brand{display:flex;align-items:center;gap:10px;color:var(--am)}
+.zh-brand .ic{width:26px;height:26px}
+.zh-brand span{font:600 13px 'JetBrains Mono',monospace;letter-spacing:.14em;color:var(--tx)}
+.zh-r{display:flex;align-items:center;gap:10px;margin-left:auto}
+.zh-sw{display:flex;gap:4px;padding:4px;background:var(--pnl);border:1px solid var(--ln);border-radius:999px}
+.zh-sw button{display:flex;align-items:center;gap:7px;background:none;border:0;color:var(--mu);padding:7px 14px;border-radius:999px;font:600 13.5px Manrope,system-ui,sans-serif;cursor:pointer}
+.zh-sw button:hover{color:var(--tx)}
+.zh-sw button.on{background:var(--am);color:#1a1200}
+.zh-sw .ic{width:16px;height:16px}
+.zh-av{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:1px solid var(--ln);background:var(--pnl);color:var(--mu);cursor:pointer}
+.zh-av:hover{border-color:var(--am);color:var(--am)}
+.zh-sw button:focus-visible,.zh-av:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
+
+/* ── Tarjetas de zona con imagen de fondo ── */
+.zhome .zc{position:relative;overflow:hidden;isolation:isolate;min-height:310px;padding:28px;border-radius:12px;background:var(--pnl)}
+.zhome .zc>.zc-bg{position:absolute;inset:0;z-index:-2;width:100%;height:100%;max-width:none;object-fit:cover;object-position:right center;transition:transform .5s ease}
+.zhome .zc::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,var(--pnl) 0%,rgba(14,23,38,.94) 34%,rgba(14,23,38,.55) 62%,rgba(14,23,38,.1) 100%)}
+.zhome .zc:hover>.zc-bg{transform:scale(1.04)}
+.zhome .zc>*{max-width:58%}
+.zhome .zc .dh-title{font-size:clamp(26px,3vw,34px)}
+.zhome .zc .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 16px}
+.zhome .zc .btn .ic{width:17px;height:17px}
+
+/* ── Imagen del piloto (espacio inferior) ── */
+.zh-pilot{margin:-8px 0 0;line-height:0;pointer-events:none;
+ -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 28%,#000 72%,transparent 100%),linear-gradient(to right,transparent 0,#000 12%,#000 88%,transparent 100%);
+ -webkit-mask-composite:source-in;
+ mask-image:linear-gradient(to bottom,transparent 0,#000 28%,#000 72%,transparent 100%),linear-gradient(to right,transparent 0,#000 12%,#000 88%,transparent 100%);
+ mask-composite:intersect}
+.zh-pilot img{display:block;width:100%;height:auto;max-height:560px;object-fit:cover;object-position:center 30%}
+
+@media(max-width:760px){
+ .zhome .zc{min-height:0;padding:22px}
+ .zhome .zc>*{max-width:none}
+ .zhome .zc::after{background:linear-gradient(180deg,rgba(14,23,38,.9),rgba(14,23,38,.7))}
+}
+@media(max-width:480px){.zh-brand span{display:none}.zh-sw button{padding:7px 10px}.zh-sw .ic{display:none}}

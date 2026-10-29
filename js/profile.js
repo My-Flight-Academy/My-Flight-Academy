@@ -261,6 +261,8 @@
           ' oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,\'\')">' +
           '<div class="au-hint">Codigo de dos letras segun ISO 3166-1 (Colombia = CO, Espana = ES).</div>' +
         '</div>' +
+        '<h3 style="margin:22px 0 4px">Perfil de piloto virtual (Simuladores)</h3>' +
+        '<div class="au-hint" style="margin-bottom:10px">Controla si apareces en los rankings de Simuladores. No afecta a tu progreso académico.</div>' +
         '<div class="au-field">' +
           '<label for="pf_visibility">Visibilidad del perfil</label>' +
           '<select id="pf_visibility">' +

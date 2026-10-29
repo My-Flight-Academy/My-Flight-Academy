@@ -23,15 +23,22 @@ const ICONS={ // Iconos lineales estilo Lucide (viewBox 24, trazo uniforme)
 
 
 const ic=k=>`<svg class="ic" viewBox="0 0 24 24">${ICONS[k]}</svg>`;
-const NAV_GROUPS=[ // Menú lateral por categorías: [categoría, [[vista, texto, icono], ...]]
- ['PRINCIPAL',[['dash','Dashboard','dash']]],
- ['FORMACIÓN',[['acad','Academia','acad'],['exam','Exámenes','exam'],['prog','Mi progreso','prog'],['route','Mi ruta','route']]],
- ['OPERACIONES',[['navi','Navegación','navi'],['met','Meteorología','met'],['comm','Comunicaciones','comm']]],
- ['AEROPUERTOS Y CARTAS',[['apt','Aeropuertos','apt'],['car','Cartas','car']]],
- ['HERRAMIENTAS',[['sim','Simulador','plane'],['log','Diario de vuelo','log']]],
- ['REFERENCIA',[['lib','Biblioteca','lib'],['dict','Diccionario','dict']]],
-  ['CUENTA',[['auth','Mi cuenta','user'],['flights','Vuelos en la nube','plane'],['rank','Rankings','trophy']]]
-];
+const NAV_ZONES={ // Menú lateral por zona: [categoría, [[vista, texto, icono], ...]]
+ home:[['PRINCIPAL',[['home','Inicio','dash']]],['CUENTA',[['auth','Mi cuenta','user']]]],
+ acad:[
+  ['PRINCIPAL',[['dash','Dashboard','dash'],['home','Inicio','plane']]],
+  ['FORMACIÓN',[['acad','Academia','acad'],['exam','Exámenes','exam'],['prog','Mi progreso','prog'],['route','Mi ruta','route']]],
+  ['OPERACIONES',[['navi','Navegación','navi'],['met','Meteorología','met'],['comm','Comunicaciones','comm']]],
+  ['AEROPUERTOS Y CARTAS',[['apt','Aeropuertos','apt'],['car','Cartas','car']]],
+  ['REFERENCIA',[['lib','Biblioteca','lib'],['dict','Diccionario','dict']]],
+  ['CUENTA',[['auth','Mi cuenta','user']]]],
+ sim:[
+  ['PRINCIPAL',[['dash','Dashboard','dash'],['home','Inicio','plane']]],
+  ['SIMULADORES',[['sim','Guías de aeronaves','plane'],['conector','Conectar MSFS 2024','plane'],['log','Diario de vuelo','log'],['flights','Vuelos en la nube','plane'],['rank','Rankings','trophy']]],
+  ['CUENTA',[['auth','Mi cuenta','user'],['profile','Perfil de piloto','user']]]]
+};
+// Zona a la que pertenece cada vista ('auth', 'dash' y 'home' no cambian de zona)
+const ZONE_OF={acad:'acad',lesson:'acad',exam:'acad',prog:'acad',route:'acad',navi:'acad',met:'acad',comm:'acad',apt:'acad',car:'acad',lib:'acad',dict:'acad',flights:'sim',rank:'sim',sim:'sim',log:'sim',profile:'sim',conector:'sim'};
 
 const PHASES=[
  {id:1,n:'Fundamentos de aviación',t:['Partes del avión','Controles de vuelo','Pitch, Roll y Yaw','Flaps y Trim','Cuatro fuerzas del vuelo']},
@@ -93,14 +100,51 @@ const total=()=>routeStats().pct;
 const allDone=()=>Object.keys(S.done).filter(k=>S.done[k]).length;
 
 // ---------- Vistas ----------
-let view='dash',lesson=null,examState=null;
+let zone=(()=>{try{const z=localStorage.getItem('fa_zone');return z==='acad'||z==='sim'?z:null}catch(e){return null}})();
+let view=zone?'dash':'home',lesson=null,examState=null; // zona recordada en 'fa_zone'; sin zona guardada se muestra el inicio
 const V={
-dash(){seedApt();const t=total(),L=availList(),cur=L.find(x=>!x.done),nxt=cur,n=L.filter(x=>x.done).length,
-  ex=S.exams[S.exams.length-1],lg=lgSorted()[0],sim=lgSimMin();
+dash(){return zone==='sim'?V.dashSim():V.dashAcad()},
+home(){const chev='<svg class="ic" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
+ c=(z,cap,ti,d,it,b,img,i)=>`<div class="card hero zc"><img class="zc-bg" src="images/inicio/${img}" alt="" loading="lazy" decoding="async"><div class="cap">${cap}</div><h2 class="dh-title">${ti}</h2><p class="dh-desc">${d}</p><ul class="zc-l">${it.map(x=>`<li>${x}</li>`).join('')}</ul><button class="btn" onclick="switchZone('${z}')">${ic(i)}${b}${chev}</button></div>`,
+ zb=(z,t,i)=>`<button class="${zone===z?'on':''}" onclick="switchZone('${z}')">${ic(i)}<span>${t}</span></button>`;
+ return `<div class="zh-top"><div class="zh-brand">${ic('plane')}<span>MY FLIGHT ACADEMY</span></div><div class="zh-r"><div class="zh-sw" role="group" aria-label="Zona de la aplicación">${zb('acad','Académico','acad')}${zb('sim','Simuladores','plane')}</div><button class="zh-av" aria-label="Mi cuenta" onclick="go('auth')">${ic('user')}</button></div></div>
+ <div class="dash"><h1>${hello()}, ${esc(S.name||'piloto')}.</h1><p class="sub">Elige una zona para empezar. Puedes cambiar de zona en cualquier momento.</p><div class="zhome">`+
+  c('acad','FORMACIÓN AERONÁUTICA','Académico','Cursos, teoría de vuelo, navegación, meteorología, comunicaciones, evaluaciones y progreso académico.',['Academia: ocho fases','Exámenes y progreso','Biblioteca y diccionario aeronáutico'],'Entrar a Académico','academico.jpg','acad')+
+  c('sim','PRÁCTICA VIRTUAL','Simuladores','Guías y checklists para MSFS 2024, diario de vuelo, vuelos en la nube, horas y rankings.',['Guías de aeronaves','Diario de vuelo y vuelos del conector','Estadísticas y rankings'],'Entrar a Simuladores','cabina.jpg','plane')+
+  `</div><figure class="zh-pilot"><img src="images/inicio/inicio.jpg" alt="Piloto de My Flight Academy: «La aviación no es solo un destino, es un camino de aprendizaje constante»" loading="lazy" decoding="async"></figure></div>`},
+conector(){const P=t=>`<pre class="mono" style="background:var(--pnl2);border:1px solid var(--ln);border-radius:6px;padding:10px 12px;overflow:auto;margin:8px 0;font-size:13px">${t}</pre>`,
+ CP=(l,id,v)=>`<div style="margin:10px 0 0"><div class="cap">${l}</div><div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap"><code id="${id}" class="mono" style="flex:1;min-width:0;overflow:auto;white-space:nowrap;background:var(--pnl2);border:1px solid var(--ln);border-radius:6px;padding:8px 10px;font-size:13px">${v?esc(v):'(no configurado en js/config.js)'}</code><button class="btn g" ${v?'':'disabled'} onclick="copyTxt('${id}',this)">Copiar</button></div></div>`,
+ S_=(n,t,b)=>`<div class="card" style="margin-bottom:14px"><div class="row" style="gap:12px;align-items:center"><div class="nx-num mono">${n}</div><h3 style="margin:0">${t}</h3></div><div style="margin-top:10px;color:var(--tx);font-size:14.5px;line-height:1.55">${b}</div></div>`;
+ return `<h1>Conectar MSFS 2024</h1><p class="sub">Para que tus vuelos de MSFS 2024 aparezcan solos en "Vuelos en la nube". Se hace una sola vez; después solo abres el conector cuando vayas a volar.</p>
+ <div class="note" style="margin:0 0 18px"><b>Estado:</b> conector probado con MSFS 2024 y funcionando. Solo funciona en Windows. No existe instalador: se compila desde la carpeta <span class="mono">connector</span> del proyecto.</div>
+ ${S_(1,'Antes de empezar','<ul style="margin:0;padding-left:18px"><li>Un PC con <b>Windows 10/11 (64 bits)</b> y MSFS 2024 instalado.</li><li>Una cuenta creada en esta página (<b>Mi cuenta</b>). Usarás el mismo correo y contraseña en el conector.</li><li>La carpeta <span class="mono">connector</span> del proyecto My Flight Academy en ese PC.</li><li>Quien administra el proyecto debe haber aplicado la migración <span class="mono">003_connector_flights.sql</span> en Supabase (primero en el proyecto de pruebas).</li></ul>')}
+ ${S_(2,'Instalar .NET 8 SDK','Descarga el <b>SDK de .NET 8</b> (x64) desde <span class="mono">dotnet.microsoft.com/download/dotnet/8.0</span> e instálalo. Comprueba abriendo una terminal (<span class="mono">cmd</span> o PowerShell):'+P('dotnet --version')+'Debe empezar por <span class="mono">8.</span>')}
+ ${S_(3,'Instalar el SDK de MSFS 2024','Es el que aporta SimConnect, la pieza que deja leer el simulador. Instálalo desde el propio MSFS 2024: activa el <b>modo desarrollador</b> y usa la opción <b>SDK Installer</b> del menú de ayuda. Usa el SDK de <b>2024</b>, no el de 2020. Después comprueba en una terminal nueva:'+P('echo %MSFS2024_SDK%')+'Debe mostrar una ruta (por ejemplo <span class="mono">C:\\MSFS 2024 SDK</span>). Si sale vacío, cierra y vuelve a abrir la terminal; si sigue vacío, el SDK no quedó instalado.')}
+ ${S_(4,'Compilar el conector','En la terminal, entra en la carpeta del conector y compila:'+P('cd connector\\MfaConnector\ndotnet build -c Release\nbin\\Release\\net8.0\\MfaConnector.exe status')+'La última línea del resultado debe decir <b>"compilado CON SDK de MSFS 2024"</b>. Si dice "SIN SDK", el paso 3 no se completó. Si tu SDK está en otra ruta: <span class="mono">dotnet build -c Release -p:MsfsSdkRoot="D:\\MSFS 2024 SDK"</span>.')}
+ ${S_(5,'Iniciar sesión (una sola vez)',P('bin\\Release\\net8.0\\MfaConnector.exe login')+'Te pedirá estos datos. Los dos primeros los da esta página; cópialos con el botón y pégalos en la terminal:'+CP('URL del proyecto Supabase','cp_url',window.SUPABASE_URL)+CP('Clave pública (anon / publishable)','cp_key',window.SUPABASE_ANON_KEY)+'<p style="margin:8px 0 0">Después escribe el <b>correo y la contraseña</b> de tu cuenta de esta página.</p><p style="margin:8px 0 0;color:var(--mu)">La clave pública es segura de compartir. Nunca pegues una clave <span class="mono">service_role</span> o <span class="mono">sb_secret_</span>: el conector la rechaza. La contraseña no se guarda; solo una sesión cifrada para tu usuario de Windows.</p>')}
+ ${S_(6,'Volar',P('bin\\Release\\net8.0\\MfaConnector.exe run')+'Deja esa ventana <b>abierta mientras vuelas</b> (puedes abrirla antes o después de iniciar MSFS 2024). Verás "Conectado a…" cuando detecte el simulador. Luego:<ol style="margin:6px 0 0;padding-left:18px"><li>Carga un avión en pista y <b>despega</b> (sobre 30 kt): verás "Despegue detectado".</li><li>Vuela y <b>aterriza</b>: "Toque de pista detectado".</li><li>Frena por debajo de 30 kt y <b>espera 20 segundos</b>: "Vuelo completado" y "Vuelo sincronizado".</li></ol><p style="margin:8px 0 0;color:var(--mu)">Un vuelo debe durar al menos 1 minuto. Para cerrar el conector pulsa Ctrl+C. Si no tienes Internet, el vuelo queda guardado en tu PC y se envía la próxima vez que ejecutes <span class="mono">run</span>.</p>')}
+ ${S_(7,'Verlo en la página','Entra a <b>Vuelos en la nube</b> y pulsa recargar. El vuelo aparece como <b>sin verificar</b>: la verificación la hace el sistema, no el conector ni tú. Sin verificar no cuenta en los rankings.')}
+ <h2>Qué no se puede detectar</h2><div class="note" style="margin-top:0">El <b>aeropuerto alternativo</b> nunca se detecta. Salida y llegada solo se rellenan si despegas y aterrizas a menos de 5 millas de un aeropuerto; si no, quedan vacías. La velocidad vertical de aterrizaje queda vacía cuando el avión no actualiza ese dato. La duración incluye las pausas. Los vuelos que empiezan ya en el aire no se registran.</div>
+ <h2>Si algo falla</h2><div class="card" style="font-size:14.5px;line-height:1.55"><ul style="margin:0;padding-left:18px"><li><b>"compilado SIN SDK"</b>: falta el SDK de MSFS 2024 (paso 3).</li><li><b>No dice "Conectado"</b>: confirma que MSFS 2024 está abierto y que <span class="mono">SimConnect.dll</span> está junto a <span class="mono">MfaConnector.exe</span>.</li><li><b>"Envío en pausa"</b>: tu sesión expiró; repite el paso 5.</li><li><b>El vuelo no aparece</b>: <span class="mono">MfaConnector.exe status</span> muestra cuántos vuelos hay en cola y cuántos fueron rechazados.</li></ul></div>`},
+dashSim(){const lg=lgSorted()[0],sim=lgSimMin(),fs=typeof flStats==='function'?flStats():{auth:false},cl=fs.loaded?fs:null,
+  hm=m=>`<div class="big">${Math.floor(m/60)}<span class="dh-u"> h </span>${String(m%60).padStart(2,'0')}<span class="dh-u"> min</span></div>`,
+  nL=k=>S.logs.filter(l=>l.kind===k).length,
+  st=[['log','ÚLTIMO VUELO',`<div class="big dh-flt">${lg?esc(lg.dep)+' → '+esc(lg.arr):'—'}</div>`,lg?`${lgDate(lg.d)} · ${esc(lg.ac)}`:'Aún no hay vuelos registrados.'],
+   ['log','HORAS EN SIMULADOR',hm(sim),S.logs.some(l=>l.kind==='SIMULADOR')?'Suma de la duración de tus vuelos de simulador.':'Sin vuelos de simulador registrados.'],
+   ['flights','VUELOS EN LA NUBE',`<div class="big">${cl?cl.total:'—'}</div>`,!fs.auth?'Inicia sesión para ver los vuelos del conector.':cl?`${cl.pending} en revisión · ${cl.verified} verificados`:fs.err?'No se pudieron cargar.':'Cargando…'],
+   ['rank','HORAS VERIFICADAS',cl?hm(Math.round(cl.vsec/60)):`<div class="big">—</div>`,'Solo estas horas cuentan en los rankings.']];
+  return `<div class="dash"><h1>${hello()}, ${esc(S.name||'piloto')}.</h1><p class="sub">Tu actividad en simuladores.</p>
+  <div class="card hero dh"><div class="cap">PRÁCTICA VIRTUAL</div><h2 class="dh-title" style="margin-top:12px">Microsoft Flight Simulator 2024</h2><p class="dh-desc">Practica con guías y checklists por aeronave, registra tus vuelos y sigue tus horas y tu rendimiento.</p><div class="row"><button class="btn" onclick="go('sim')">Guías de aeronaves</button><button class="btn g" onclick="go('log')">Diario de vuelo</button><button class="btn g" onclick="go('conector')">Conectar MSFS 2024</button></div></div>
+  <h2>Estado</h2><div class="stats4">${st.map(x=>`<button class="card stat" onclick="go('${x[0]}')"><div class="cap">${x[1]}</div>${x[2]}<div class="stat-sub">${x[3]}</div></button>`).join('')}</div>
+  <h2>Rendimiento</h2><div class="stats4"><div class="card stat"><div class="cap">ATERRIZAJE MEDIO</div><div class="big">${cl&&cl.avgVs!=null?cl.avgVs+'<span class="dh-u"> fpm</span>':'—'}</div><div class="stat-sub">${cl&&cl.avgVs!=null?'Promedio de |velocidad vertical| en el toque (vuelos en la nube).':'Sin datos de aterrizaje en la nube.'}</div></div>
+   <div class="card stat"><div class="cap">DIARIO DE VUELO</div><div class="big">${S.logs.length}</div><div class="stat-sub">${nL('SIMULADOR')} simulador · ${nL('VUELO REAL')} vuelo real</div></div></div>
+  <div class="dcols"><div><h2>Actividad reciente</h2>${dashAct(true)}</div><div></div></div></div>`},
+dashAcad(){seedApt();const t=total(),L=availList(),cur=L.find(x=>!x.done),nxt=cur,n=L.filter(x=>x.done).length,
+  ex=S.exams[S.exams.length-1],fd=PHASES.filter(p=>p.t.every(q=>S.done[key(p.id,q)])).length,ep=PHASES.filter(p=>examStatus(p.id)==='passed').length;
   const st=[['prog','LECCIONES COMPLETADAS',`<div class="big">${n}</div>`,n?`De ${L.length} lecciones disponibles.`:'Tu formación está comenzando.'],
    ['exam','ÚLTIMO EXAMEN',`<div class="big">${ex?ex.s+'/'+ex.n:'—'}</div>`,ex?`${esc(examLabel(ex))}${examIso(ex)?' · '+fmtD(examIso(ex)):''}`:'Sin exámenes realizados.'],
-   ['log','ÚLTIMO VUELO',`<div class="big dh-flt">${lg?esc(lg.dep)+' → '+esc(lg.arr):'—'}</div>`,lg?`${lgDate(lg.d)} · ${esc(lg.ac)}`:'Aún no hay vuelos registrados.'],
-   ['log','HORAS EN SIMULADOR',`<div class="big">${Math.floor(sim/60)}<span class="dh-u"> h </span>${String(sim%60).padStart(2,'0')}<span class="dh-u"> min</span></div>`,S.logs.some(l=>l.kind==='SIMULADOR')?'Suma de la duración de tus vuelos de simulador.':'Sin vuelos de simulador registrados.']];
+   ['acad','FASES COMPLETADAS',`<div class="big">${fd}<span class="dh-u"> de ${PHASES.length}</span></div>`,fd?'Fases con todos sus temas estudiados.':'Aún no has completado ninguna fase.'],
+   ['exam','EXÁMENES APROBADOS',`<div class="big">${ep}</div>`,ep?'Fases con examen aprobado.':'Sin exámenes aprobados todavía.']];
   return `<div class="dash"><h1>${hello()}, ${esc(S.name||'piloto')}.</h1><p class="sub">Tu objetivo: convertirte en piloto. <button class="btn g" style="padding:3px 10px;font-size:12px;margin-left:6px" onclick="welcome(true)">Cambiar nombre</button></p>
   ${dashHero(t,cur)}
   <h2>Estado</h2><div class="stats4">${st.map(x=>`<button class="card stat" onclick="go('${x[0]}')"><div class="cap">${x[1]}</div>${x[2]}<div class="stat-sub">${x[3]}</div></button>`).join('')}</div>
@@ -626,10 +670,10 @@ const dmy=d=>{const m=String(d).match(/(\d+)\D+(\d+)\D+(\d{4})/);return m?m[3]+'
 const durFmt=m=>{m=+m||0;return m>=60?Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')+' min':m>0?m+' min':''};
 function topicList(){let n=0;return PHASES.flatMap(p=>p.t.map((t,i)=>({p,i,t,n:++n,done:!!S.done[key(p.id,t)]})))}
 function openTopic(pid,i){const ph=PHASES.find(x=>x.id===pid);go('acad');openL(pid,ph.t[i])}
-function recent(){const ev=[];
- S.exams.forEach(e=>{const f=e.ph&&PHASES.find(x=>x.id===e.ph);ev.push({d:examIso(e),ts:e.ts||0,t:e.ph?'Examen de la Fase '+e.ph:'Examen general (versión anterior)',x:`${f?esc(f.n)+' · ':''}Resultado: <span class="mono">${e.s}/${e.n}</span>`})});
- S.logs.forEach(l=>ev.push({d:l.d,ts:0,t:'Vuelo registrado',x:`${l.kind==='SIMULADOR'?'Simulador':'Vuelo real'} · <span class="mono">${esc(l.dep)} → ${esc(l.arr)}</span> · ${esc(l.ac)}${durFmt(l.dur)?' · '+durFmt(l.dur):''}`}));
- (S.act||[]).forEach(a=>ev.push({d:a.d,ts:a.ts||0,t:a.ty==='done'?'Lección completada':'Lección iniciada',x:esc(String(a.k).split('|')[1])}));
+function recent(sim){const ev=[];
+ if(!sim)S.exams.forEach(e=>{const f=e.ph&&PHASES.find(x=>x.id===e.ph);ev.push({d:examIso(e),ts:e.ts||0,t:e.ph?'Examen de la Fase '+e.ph:'Examen general (versión anterior)',x:`${f?esc(f.n)+' · ':''}Resultado: <span class="mono">${e.s}/${e.n}</span>`})});
+ if(sim)S.logs.forEach(l=>ev.push({d:l.d,ts:0,t:'Vuelo registrado',x:`${l.kind==='SIMULADOR'?'Simulador':'Vuelo real'} · <span class="mono">${esc(l.dep)} → ${esc(l.arr)}</span> · ${esc(l.ac)}${durFmt(l.dur)?' · '+durFmt(l.dur):''}`}));
+ if(!sim)(S.act||[]).forEach(a=>ev.push({d:a.d,ts:a.ts||0,t:a.ty==='done'?'Lección completada':'Lección iniciada',x:esc(String(a.k).split('|')[1])}));
  return ev.filter(e=>e.d).sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:b.ts-a.ts).slice(0,5)}
 function refData(){const d=S.apt.SKBG||{},m=String(d.rwy||'').match(/RWY\s*(\d{2})\s*\/\s*(\d{2})/i),e=String(d.elev||'').match(/(\d[\d.,]*)\s*ft/i),a=allApt().find(x=>x.icao==='SKBG')||{};
  return{icao:a.icao||'SKBG',iata:a.iata||'',name:a.name||'',city:a.city||'',country:a.country||'',rwy:m?m[1]+' / '+m[2]:'—',elev:e?e[1]+' FT':'—'}}
@@ -649,9 +693,9 @@ function dashNext(x){
   <div class="nx-row"><div class="nx-num mono">${String(x.n).padStart(2,'0')}</div><div><h3 class="nx-title">${esc(x.t)}</h3>${i.tags?`<div class="nx-tags mono">${esc(i.tags)}</div>`:''}</div></div>
   ${i.d?`<p class="nx-desc">${esc(i.d)}</p>`:''}
   <div class="row" style="justify-content:space-between"><span class="tag ${ok?'real':''}">${ok?(started?'EN CURSO':'DISPONIBLE'):'PRÓXIMAMENTE'}</span><button class="btn g" onclick="openTopic(${x.p.id},${x.i})">Estudiar</button></div></div>`}
-function dashAct(){const ev=recent();
- if(!ev.length)return `<div class="card"><div class="act-t">Sin actividad registrada todavía.</div><div class="act-x">Cuando estudies una lección, presentes un examen o registres un vuelo, aparecerá aquí.</div></div>`;
- return `<div class="card">`+ev.map(e=>`<div class="act-i"><div class="act-d mono">${fmtD(e.d)}</div><div><div class="act-t">${e.t}</div><div class="act-x">${e.x}</div></div></div>`).join('')+(S.logs.length?'':`<div class="act-i act-none"><div class="act-d mono">—</div><div class="act-x">Sin vuelos registrados todavía.</div></div>`)+`</div>`}
+function dashAct(sim){const ev=recent(sim);
+ if(!ev.length)return `<div class="card"><div class="act-t">Sin actividad registrada todavía.</div><div class="act-x">${sim?'Cuando registres un vuelo en el Diario, aparecerá aquí.':'Cuando estudies una lección o presentes un examen, aparecerá aquí.'}</div></div>`;
+ return `<div class="card">`+ev.map(e=>`<div class="act-i"><div class="act-d mono">${fmtD(e.d)}</div><div><div class="act-t">${e.t}</div><div class="act-x">${e.x}</div></div></div>`).join('')+`</div>`}
 function dashRef(){const r=refData(),c=(l,v,k)=>`<div><div class="cap">${l}</div><div class="mono ${k||''}">${esc(v)}</div></div>`;
  return `<div class="card ref"><div><div class="cap">REFERENCIA OPERACIONAL</div><div class="mono code">${esc(r.icao)}</div><h3 style="margin:2px 0">${esc(r.name)}</h3><div style="color:var(--mu)">${esc(r.city)}, ${esc(r.country)}</div></div>
   <div class="ref-d">${c('ICAO',r.icao,'am')}${c('IATA',r.iata)}${c('PISTA',r.rwy)}${c('ELEVACIÓN',r.elev)}</div>
@@ -666,10 +710,17 @@ function delExams(){if(confirm('¿Borrar todo el historial de exámenes? Esta ac
 document.head.insertAdjacentHTML('beforeend','<style>.rt h2{margin:22px 0 12px}.rt-p{margin-bottom:16px;transition:border-color .2s}.rt-p h2{margin:2px 0 6px;font-size:19px}.rt-curp{border-color:#3a557f}.rt-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.rt-d{margin:0;color:var(--mu);max-width:70ch;font-size:14px}.rt-pg{margin:14px 0 4px}.rt-pg .bar{margin:6px 0}.rt-sub{color:var(--mu);font-size:13px}.rt-ls{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}.rt-l{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--pnl2);border:1px solid var(--ln);border-radius:6px;padding:11px 14px;color:var(--tx);font:inherit;cursor:pointer;transition:border-color .15s,background .15s}.rt-l:hover{border-color:var(--am)}.rt-l:focus-visible{outline:2px solid var(--bl);outline-offset:2px}.rt-l.rt-cur{border-color:var(--am);box-shadow:inset 3px 0 0 var(--am)}.rt-n{color:var(--mu);min-width:24px}.rt-t{flex:1;font-weight:600;min-width:0}.rt-s{display:inline-flex;align-items:center;gap:6px;font:600 11px JetBrains Mono,monospace;letter-spacing:.04em;color:var(--mu);white-space:nowrap}.rt-s .ic{width:16px;height:16px}.rt-doing{color:var(--am)}.rt-done{color:var(--gr)}.tag.rt-doing{border-color:var(--am)}.tag.rt-done{border-color:var(--gr)}.rt-ex{margin-top:14px;border:1px solid var(--ln);border-radius:6px;padding:14px 16px;background:#0b1424}.rt-ex.rt-cur{border-color:var(--am)}.rt-et{margin:2px 0 4px;font-size:16px}.tag.rt-e-done{color:var(--am);border-color:var(--am)}.tag.rt-e-passed{color:var(--gr);border-color:var(--gr)}.rt-soon{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.rt-soon h2{font-size:17px}.rt-det{margin-top:16px}.rt-det summary{cursor:pointer;color:var(--mu);padding:6px 0}.rt-det summary:hover{color:var(--tx)}@media(max-width:760px){.rt-l{flex-wrap:wrap}.rt-s{width:100%;padding-left:38px}.rt-h{flex-direction:column}}</style>');
 function toggle(k){S.done[k]=!S.done[k];S.act=S.act||[];if(S.done[k])S.act.push({k,ty:'done',d:today(),ts:Date.now()});else S.act=S.act.filter(a=>!(a.k===k&&a.ty==='done'));save();render()}
 function openL(p,t){lesson={p,t};const k=key(p,t);S.act=S.act||[];if(LESSONS[t]&&!S.act.some(a=>a.k===k&&a.ty==='start')){S.act.push({k,ty:'start',d:today(),ts:Date.now()});save()}render()}
-function go(v){if(typeof _wStopRaf==='function')_wStopRaf();view=v;lesson=null;if(v!=='exam')examState=null;render();scrollTo(0,0)}
+function copyTxt(id,b){const t=($('#'+id)||{}).textContent||'',ok=()=>{if(b){const o=b.textContent;b.textContent='¡Copiado!';setTimeout(()=>{b.textContent=o},1500)}};try{navigator.clipboard.writeText(t).then(ok,()=>{fb()})}catch(e){fb()}function fb(){const x=document.createElement('textarea');x.value=t;document.body.appendChild(x);x.select();try{document.execCommand('copy');ok()}catch(e){}x.remove()}}
+function setZone(z){zone=z;try{localStorage.setItem('fa_zone',z)}catch(e){}}
+function switchZone(z){closeNav();aptSel=null;setZone(z);go('dash')}
+function zoneSw(h){const on=z=>zone===z&&view!=='home';return `<div class="zsw${h?' zsw-h':''}" role="group" aria-label="Zona de la aplicación">`+[['acad','Académico','acad'],['sim','Simuladores','plane']].map(z=>`<button class="${on(z[0])?'on':''}" aria-label="${z[1]}" aria-pressed="${on(z[0])}" onclick="switchZone('${z[0]}')">${ic(z[2])}<span class="lb">${z[1]}</span></button>`).join('')+`</div>`}
+function tbZone(){const tb=$('#tb');if(!tb)return;if(!$('#tbz'))tb.insertAdjacentHTML('beforeend','<div id="tbz"></div>');$('#tbz').innerHTML=zoneSw(1)}
+document.head.insertAdjacentHTML('beforeend','<style>.zsw{display:flex;flex-direction:column;gap:2px;margin:0 0 12px;padding-bottom:12px;border-bottom:1px solid var(--ln)}#tbz{margin-left:auto}.zsw-h{flex-direction:row;gap:4px;margin:0;padding:0;border:0}#tb .zsw-h button{display:flex;align-items:center;gap:6px;background:none;border:1px solid var(--ln);color:var(--mu);padding:4px 9px;border-radius:6px;font:inherit;font-size:12.5px;cursor:pointer}#tb .zsw-h button.on{color:var(--tx);border-color:var(--am);background:var(--pnl2)}#tb .zsw-h .ic{width:14px;height:14px}.zhome{display:grid;gap:18px;grid-template-columns:repeat(2,minmax(0,1fr))}.zc{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:24px}.zc-l{margin:8px 0 16px;padding-left:18px;color:var(--mu);font-size:14px}.zc .btn{margin-top:auto}@media(max-width:760px){.zhome{grid-template-columns:1fr}}@media(max-width:480px){.tb-t{display:none}}</style>');
+function go(v){if(typeof _wStopRaf==='function')_wStopRaf();if(ZONE_OF[v])setZone(ZONE_OF[v]);if(v==='dash'&&!zone)v='home';view=v;lesson=null;if(v!=='exam')examState=null;render();scrollTo(0,0)}
 function render(){
  if(view==='exam'&&examState&&examState.i>=examQ().length&&!examState.saved){examState.saved=1;S.exams.push({ph:examState.ph,d:new Date().toLocaleDateString('es-CO'),iso:today(),ts:Date.now(),s:examState.s,n:examQ().length,miss:[...new Set(examState.miss)]});save()}
-$('#nav').innerHTML=`<div class="brand">${ic('plane')}<span class="lb">Flight Academy</span></div>`+NAV_GROUPS.map(g=>`<div class="nG" role="group" aria-label="${g[0]}"><div class="ng">${g[0]}</div>`+g[1].map(n=>`<button class="${view===n[0]?'on':''}" aria-label="${n[1]}"${view===n[0]?' aria-current="page"':''} onclick="closeNav();aptSel=null;go('${n[0]}')">${ic(n[2])}<span class="lb">${n[1]}</span></button>`).join('')+`</div>`).join('')+`<button id="col" aria-label="${$('#nav').classList.contains('c')?'Expandir menú':'Contraer menú'}" onclick="toggleNav()">${ic('pclose')}${ic('popen')}<span class="lb">Contraer menú</span></button>`;
+$('#nav').innerHTML=`<div class="brand">${ic('plane')}<span class="lb">Flight Academy</span></div>`+zoneSw()+((view==='home'||!zone)?NAV_ZONES.home:NAV_ZONES[zone]).map(g=>`<div class="nG" role="group" aria-label="${g[0]}"><div class="ng">${g[0]}</div>`+g[1].map(n=>`<button class="${view===n[0]?'on':''}" aria-label="${n[1]}"${view===n[0]?' aria-current="page"':''} onclick="closeNav();aptSel=null;go('${n[0]}')">${ic(n[2])}<span class="lb">${n[1]}</span></button>`).join('')+`</div>`).join('')+`<button id="col" aria-label="${$('#nav').classList.contains('c')?'Expandir menú':'Contraer menú'}" onclick="toggleNav()">${ic('pclose')}${ic('popen')}<span class="lb">Contraer menú</span></button>`;
+  tbZone();document.body.classList.toggle('is-home',view==='home');
  $('#main').innerHTML=`<section class="sec">${V[view]()}</section>`;
   if(view==='navi')calcW();if(view==='met')decM();if(view==='lib'||view==='car')libInit();if(typeof authPostRender==='function')authPostRender()}
  // ---------- Menú lateral: contraer (se recuerda), panel en móvil y tooltips ----------
